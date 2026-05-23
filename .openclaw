@@ -1,0 +1,29 @@
+{
+  "name": "skillforge",
+  "contextPaths": [],
+  "memory": {
+    "externalDocPaths": []
+  },
+  "gitnexus": {
+    "enabled": true
+  },
+  "truthSource": {
+    "enabled": true,
+    "visibility": "visible",
+    "truthVisible": true,
+    "mode": "internal",
+    "autoAdr": true,
+    "adrThreshold": "high",
+    "excludedAgents": [],
+    "maxReportAge": 86400,
+    "truthDoc": {
+      "enabled": true
+    }
+  },
+  "agent": {
+    "files": [],
+    "skills": [],
+    "commands": [],
+    "mcpServers": {}
+  }
+}

@@ -1,0 +1,776 @@
+# SkillForge Runtime Replay Protocol & Preflight 轻量设计草案
+
+> 状态：设计草案（协议仍为 draft，仓库内已有受限的 Phase 3 runtime draft CLI / orchestrator 实施）
+> 适用阶段：Milestone D 协议收敛前置文档
+> 文档目的：为负责人判断“是否继续进入 runtime 相关子任务”提供边界清晰、与现有 static/schema 阶段兼容的协议草案。
+> 重要声明：本文**不代表 provider-backed runtime replay 已实现**，也**不承诺 transcript engine / sandbox enforcement / model integration / multi-case runtime orchestration 已存在**。
+> 补充边界：当前若出现 transcript evidence，也仅是 **provider-less draft transcript evidence**；它不是 provider transcript，不是 transcript persistence，也不是可复用 transcript registry。
+
+## 1. 设计目标
+
+当前 SkillForge 已具备的是 **static validation**：
+
+- 读取 fixture 文件树；
+- 经过 `loadFixture -> normalizeFixture -> validateFixture -> buildReport` 静态校验链路；
+- 产出 single-fixture report、multi-fixture report 与本地 aggregate summary；
+- 对 replay 相关内容只做**诚实性检查**，例如：
+  - 不允许 `passed: true` 但没有 observed evidence；
+  - 不允许把 runtime 未执行的结果伪装成 validation passed。
+
+因此，Milestone D 的目标不是“补完整 runtime 实现”，而是先把**runtime replay protocol 和 preflight contract 冻结成轻量文档**，让后续实现有明确边界，且不反向污染当前 static MVP。
+
+当前仓库内已经存在一个**独立 runtime draft CLI** 及其最小 orchestration 承载面，用于诚实地串起 `static validation -> preflight -> single-case selection -> provider adapter seam -> dry/null runtime skeleton -> draft artifact`。这一步只代表 Phase 3 draft execution surface 与 provider adapter seam 的 contract-first 边界已接通，不代表真实 runtime replay 已交付。
+
+补充到 provider adapter 边界：当前 synthetic provider branch 只是 adapter 层的受限模拟接线，专门用于验证 provider-backed contract 的白名单与字段流转；它对应的 `runtime-provider-synthetic.mjs` 仅产出 deterministic mock results，不会发起 real provider call，也不会被解释为 real execution evidence。换句话说，synthetic provider pipeline 只是在 adapter seam 上补齐“能看见边界”的合同测试位，不是在 runtime 层开启真实 provider 通道。
+
+补充同步本轮真实进度：provider-backed selection wiring 已经完成一轮 tightening，selection lineage 现在被明确收紧为内部单一路径：`adapter -> runner -> observed mapper -> report`。这只是把内部 truth channel 统一，避免多处二次发明 selection 来源；**不是** provider-backed mode 对外开放，也不是 validate 默认链路开始消费 runtime/provider 路线。
+
+当前 transcript 相关能力也只到 very thin evidence layer：允许在单 case draft artifact 内表达 provider-less transcript evidence 的占位引用，但不能把它解释成 provider transcript、transcript engine 或 persistence 层已经存在。
+
+同时，当前 provider seam 也只是 adapter-facing contract-first seam：它冻结了未来 provider adapter 的输入/输出边界，但并没有把 provider-backed mode 变成可执行能力。CLI 仍不暴露 provider-backed mode；provider-backed slot 目前只是 reserved/unimplemented。
+
+补充一致性要求：文档中的 provenanceSummary 只能描述“看起来来自哪里”，不能暗示“真的执行了什么”。如果文本里出现 provider-backed 相关措辞，必须同时带上 informational-only / not execution evidence 的边界说明。
+
+补充同步本轮真实边界：当前 adapter result 已收紧为**更真实的中间 truth payload**。这意味着 `rawResponse`、`providerExecution`、`transcriptAvailability` 现在只是从同一个 adapter result 同源透传出来的草案视图；它们共享同一事实来源。但这里的 `rawResponse` 只应被理解为**最小 skeleton / truth payload slot**：不是完整 provider payload capture，不是 transcript，也不是 persistence handle。并且 `rawResponse` 与 transcript handle 当前不再允许混源 fallback。这仍然**不代表真实 provider call 已发生**，也不代表 provider transcript、transcript persistence、scoring 或正式 gate 已完成。
+
+补充同步 execution identity stub 的当前边界：provider-backed reserved seam 下，`executionId / providerRunId / providerStatus` 现在也可以作为同一个 adapter truth source 透传出来，形成 same-source stub tuple；但这个 tuple 只是**保守 execution metadata stub**，用于给未来真实 provider execution contract 预留 identity/status 槽位。它不等于真实 provider execution，不等于 `executed=true`、`providerCall=true`、`providerEvidenceAvailable=true`，也不代表 transcript、raw payload persistence 或 passed path 已完成；其中 `providerStatus` 也只允许停留在 metadata / providerExecution seam，不进入 public case status 集合。non-provider-backed 路径则仍要求这些字段保持 `null` fallback，不能做 mixed-source fallback 或 partial tuple 拼装。
+
+补充到 rawResponse reserved seam：当前 `rawResponse` 也只是同一个 adapter truth source 透传出的**最小 skeleton / summary-only truth payload slot**。它的职责仅限于表达“未来若接入真实 provider raw payload capture，应沿哪条 same-source contract 传播最小摘要/标识”；这并不等于当前已经做了真实 provider payload capture、payload retrieval、payload persistence，或存在可回捞的 provider raw payload handle。若出现 `rawResponse.summary`，它也只应被解释为摘要位，而不是完整 provider payload。若未来 contract 引入 `rawResponse.handle` 或等价 identity slot，在当前阶段它也只能被解释为 reserved-only raw-response identity seam，**不是** transcript handle、不是 persistence handle、也不是 transcript/persistence retrieval handle。
+
+补充收紧边界：当前 provider-backed reserved slot 相关字段也只能维持诚实占位语义——provider execution metadata、provider transcript bits、persistence handles、provider evidence availability、以及任何 provider-backed success/passed path，都必须继续落在 `false` / `null` / `"none"` / reserved 状态，不能因为 adapter seam、rawResponse same-source passthrough、或 draft transcript ref 的存在而被误读成 provider integration 已完成。non-provider-backed 路径也仍要求 `rawResponse` 维持 unavailable/null fallback，而不是从其他槽位拼装 summary/handle。
+
+补充到 transcript persistence reserved seam：当前 `transcriptAvailability` / `transcriptRef.handle` / `providerManaged` / `providerTranscript` / `persistence` / `providerMetadata.transcriptPersistence` 也只是同一个 adapter truth source 沿 `adapter -> runner -> observed mapper -> report` 传播的 **reserved attach-point contract**。它们现在表达的仅是“未来若接入真实 provider transcript capture / retrieval / persistence，应沿哪条 same-source contract 落位”，不是当前已经完成 provider transcript capture、provider transcript retrieval、provider-managed transcript handle、或 transcript persistence。尤其 `availability` 不等于 persistence，`persistence` 也不等于 evidence availability；这几者当前都不能被升级解释成 provider transcript 已存在。
+
+本文要回答的问题是：
+
+1. static validation 与未来 runtime replay / preflight 如何分层；
+2. 最小 target objects / artifacts 是什么；
+3. `replay-cases.yaml` 到 runtime-ready 阶段哪些字段冻结、哪些保留、哪些不扩张；
+4. preflight 的输入输出边界如何贴近 `normalize.mjs`；
+5. runtime replay report 如何与现有 validator report 兼容；
+6. runner / sandbox 在本阶段只冻结哪些接口；
+7. 本阶段明确不做什么；
+8. 后续最合理的推进顺序是什么。
+
+---
+
+## 2. 当前 static validation 与未来 runtime replay / preflight 的关系
+
+## 2.1 分层关系
+
+建议把后续链路理解为三层：
+
+```text
+fixture files
+  -> static validation
+  -> preflight
+  -> runtime replay
+```
+
+三层职责分别是：
+
+### A. Static validation（已存在）
+
+职责：验证“声明是否像样、边界是否诚实、结构是否完整”。
+
+它已经覆盖：
+
+- required files 是否存在；
+- manifest / replay-cases 的 lightweight schema gate；
+- `SKILL.md` frontmatter 与 trigger wording；
+- conservative boundary、privacy、dependency、compatibility、checklist 聚合；
+- replay 诚实性：不能无 observed 就写 passed。
+
+它**不能证明**：
+
+- skill 在真实模型下会被正确触发；
+- output 质量达标；
+- tool/sandbox 行为真实可执行；
+- transcript / observed / scoring 可复现。
+
+### B. Preflight（未来新增，先定义协议）
+
+职责：验证“这个 fixture 是否已经**足够 runtime-ready**，可以被 runner 尝试执行”。
+
+preflight 不负责执行模型，不负责生成 transcript，不做最终评分；它更像 runtime 前的 gate：
+
+- 输入对象是否合法；
+- replay cases 是否满足 runtime-ready 最小字段；
+- runner 所需接口声明是否齐备；
+- 是否存在显式禁止进入 runtime 的条件。
+
+### C. Runtime replay（当前仅有 draft orchestration，真实执行仍未实现）
+
+职责：在明确输入、边界、工具权限和 case 语义的前提下，记录**真实执行证据**：
+
+- case 是否被执行；
+- transcript / observed output 是什么；
+- 是否通过；
+- 失败原因属于触发、边界、输出质量还是环境问题。
+
+## 2.2 关系原则
+
+建议冻结以下关系原则：
+
+1. **Static pass 是 runtime 的前置条件，不是 runtime 的替代品。**
+2. **Preflight pass 只表示“可尝试执行”，不表示“执行通过”。**
+3. **当前 provider seam 只是 contract-first adapter seam，不等于 provider-backed runtime replay 已实现。**
+4. **Preflight 未通过时，runtime draft 结果应更诚实地收敛为 `blocked`，而不是继续暴露带执行幻觉的 `preflight-failed` 运行态标签。**
+5. **当前 provider-backed reserved seam 的 failure taxonomy 只允许 `blocked | error`：`blocked` 绑定 `preflight-blocked` / guard-blocked 语义，provider-backed `error` 只是 reserved slot，不代表真实 provider execution failure taxonomy。**
+6. **`adapter-error` 只是 internal semantic alias，对外仍必须序列化为 `error`；report / failureReason 当前必须 same-source，不允许 mixed-source fallback。**
+7. **当前 provider-backed selection 只允许在内部 `adapter -> runner -> observed mapper -> report` 单一路径上传播，不应在 CLI、validate 默认链路或其他外层入口重新开放第二条来源。**
+8. **Runtime replay report 只能建立在实际执行证据之上。**
+9. **任何 runtime 结果都不回写为伪造的 static pass。**
+10. **`validate:all` / `validate:contracts` 继续只代表 static validation，不混入 runtime。**
+
+---
+
+## 3. 最小 target objects / artifacts
+
+Milestone D 建议只冻结 3 个最小对象，不再额外扩张：
+
+1. `replay-cases.yaml`
+2. runtime replay report
+3. preflight result
+
+## 3.1 replay-cases.yaml
+
+定位：**case declaration artifact**。
+它描述“将来应该如何 replay”，而不是“已经 replay 过什么”。
+
+建议继续把它视为 fixture 的一部分，和 static validation 共存。
+
+## 3.2 preflight result
+
+定位：**runtime-readiness artifact**。
+它描述“这批 replay case 是否已经满足 runtime 执行前的最小合同”。
+
+它的职责是：
+
+- 不执行模型；
+- 不生成 transcript；
+- 只给出可执行性判断与阻断原因。
+
+## 3.3 runtime replay report
+
+定位：**execution evidence artifact**。
+它描述“哪些 case 被实际执行了，观察到了什么，结果如何”。
+
+它与现有 validator report 平行，不替代 validator report。
+
+## 3.4 三者关系
+
+```text
+replay-cases.yaml
+  -> preflight result
+      -> runtime replay report
+```
+
+含义：
+
+- `replay-cases.yaml` 是声明源；
+- preflight result 说明声明是否已达 runtime-ready；
+- runtime replay report 记录真正执行的 evidence。
+
+建议不要在 Milestone D 再引入第 4 类 artifact（例如 transcript registry、rubric bundle、sandbox snapshot），这些都可留到后续实现任务再拆。
+
+---
+
+## 4. replay-cases.yaml：runtime-ready 阶段的冻结边界
+
+基于现有 `schema.mjs` 与 `validator.mjs`，当前 `replay-cases.yaml` 已有最小字段：
+
+- `fixtureId`
+- `kind`
+- `cases[]`
+  - `id`
+  - `type`
+  - `intent`
+  - `expectedBehavior`
+  - `observed`
+  - `passed`
+
+在 runtime-ready 阶段，建议把字段分成三类：**冻结字段**、**保留字段**、**明确不扩张字段**。
+
+## 4.1 冻结字段
+
+这些字段建议继续保留并冻结语义：
+
+| 字段 | 语义 | 备注 |
+| --- | --- | --- |
+| `fixtureId` | 所属 fixture 标识 | 与现有 static fixture 身份一致 |
+| `kind` | artifact kind | 继续使用 `replay-cases` |
+| `cases[].id` | case 稳定标识 | 后续 report / transcript 关联主键 |
+| `cases[].type` | `positive | negative | edge` | 不扩充更多类型枚举 |
+| `cases[].intent` | 用户意图摘要 | 用于人读与 runner 输入组装 |
+| `cases[].expectedBehavior` | 期望行为 | 允许 string 或 array，保持兼容现状 |
+| `cases[].forbiddenBehavior` | 禁止行为 | 可选，但语义固定为 boundary guard |
+| `cases[].passed` | 执行结果 | 未执行时必须为 `null` |
+| `cases[].observed` | 观测结果占位 | 未执行时必须为 `null` |
+
+其中最关键的是两条：
+
+1. `passed` 仍然只能代表**实际执行后的结果**；
+2. `observed` 仍然只能代表**实际观测到的证据**，不能拿推测值填充。
+
+## 4.2 保留字段
+
+这些字段可保留为 runtime-ready 所需的轻量补充，但不要求当前 static 阶段强制校验全部语义：
+
+| 字段 | 用途 |
+| --- | --- |
+| `cases[].input` | 保留为原始输入材料或输入摘要 |
+| `cases[].privacyNotes` | case 级隐私说明 |
+| `cases[].tags` | case 分类标签 |
+| `checklist` | 与现有静态七维口径兼容 |
+
+建议新增但仅作为**保留位**的字段：
+
+| 字段 | 用途 | 当前状态 |
+| --- | --- | --- |
+| `cases[].runtime` | case 级 runtime hint，例如执行模式、是否允许工具 | 保留，不要求实现 |
+| `cases[].preflight` | case 级 runtime-ready 补充元数据 | 保留，不要求实现 |
+
+注意：Milestone D 只建议在文档里保留命名空间，不要求现在修改 fixture 或 schema 代码去接受这些字段。
+
+## 4.3 明确不扩张
+
+本阶段建议明确不把 `replay-cases.yaml` 扩成以下东西：
+
+1. **不内嵌完整 transcript**；
+2. **不内嵌模型 provider / model name / sampling params**；
+3. **不内嵌 sandbox 运行日志**；
+4. **不内嵌评分 rubric 细节引擎**；
+5. **不把 case 声明文件变成 execution report**；
+6. **不引入复杂 case dependency graph**；
+7. **不支持一条 case 绑定多模型多平台结果矩阵**。
+
+换句话说，`replay-cases.yaml` 继续是**声明层 artifact**，不是结果数据库。
+
+---
+
+## 5. Preflight 输入输出边界
+
+## 5.1 为什么要贴近 normalize 层
+
+从代码结构看，`normalize.mjs` 已经把 loader 产物整理成了更自然的运行前对象：
+
+- `fixtureId`
+- `fixtureVersion`
+- `profile`
+- `entryPath`
+- `skillFrontmatter`
+- `skillBody`
+- `workflowSource`
+- `skillSpec`
+- `skillManifest`
+- `replayCases`
+- `validationResult`
+- `dependencies`
+- `permissions`
+- `toolBoundary`
+- `checklist`
+
+这说明 preflight 最自然的输入，不应该是“runner 自己重新解析一遍整个文件树”，而应该是：
+
+- 原始 `loadedFixture`，以及/或者
+- `normalizeFixture(loadedFixture)` 的结果。
+
+## 5.2 建议输入边界
+
+建议 preflight 的逻辑输入定义为：
+
+```ts
+{
+  fixtureDir: string,
+  loadedFixture: LoadedFixture,
+  normalizedFixture: NormalizedFixture,
+  staticReport?: ValidatorReport
+}
+```
+
+其中最关键的是 `normalizedFixture`，因为它已经聚合了：
+
+- profile
+- permissions
+- tool boundary
+- dependency summary
+- replay cases
+- checklist coverage
+
+这比让 preflight 从 YAML/Markdown 文本重新取值更稳，也更符合现有实现分层。
+
+## 5.3 建议输出边界
+
+preflight 的输出建议是一个独立 artifact：
+
+```yaml
+kind: runtime-preflight-result
+reportVersion: 0.1.0-draft
+fixture:
+  id: ...
+  version: ...
+  profile: ...
+status: passed | failed
+summary:
+  passed: true|false
+  blockingFailures: number
+  warnings: number
+checks:
+  - id: ...
+    severity: P0|P1|P2
+    status: pass|fail|warn|error
+    message: ...
+    evidence: []
+pendingCapabilities:
+  - transcript-engine
+  - sandbox-implementation
+metadata:
+  sourceStaticReportVersion: ...
+  generatedAt: ...
+```
+
+## 5.4 Preflight 只检查什么
+
+建议只检查 runtime-ready 最小条件：
+
+1. static report 是否已通过，或至少无 blocking failures；
+2. `replay-cases.yaml` 是否存在且结构可用；
+3. 每个拟执行 case 是否有稳定 `id/type/intent/expectedBehavior`；
+4. `passed/observed` 是否仍保持诚实语义；
+5. permissions / toolBoundary 是否足以说明执行边界；
+6. profile 是否属于当前允许进入 runtime 的范围；
+7. 是否声明了任何当前 runner 明确不支持的能力。
+
+## 5.5 Preflight 明确不检查什么
+
+preflight 不应承担以下职责：
+
+- 不判断模型输出质量是否合格；
+- 不生成 transcript；
+- 不做多轮 agent orchestration；
+- 不评估跨模型稳定性；
+- 不模拟 sandbox 行为；
+- 不替代 static validation。
+
+---
+
+## 6. Runtime replay report 与现有 validator report 的兼容策略
+
+## 6.1 兼容目标
+
+现有 validator report 已有稳定骨架：
+
+- `reportVersion`
+- `ruleSetVersion`
+- `fixture`
+- `status`
+- `summary`
+- `checks`
+- `errors`
+- `metadata`
+- 兼容别名：`rules`、`findings`、`generatedAt`
+
+建议 runtime replay report **借用同类骨架，但不伪装成 validator report**。
+
+补充给 acceptance 透传的边界：如果 runtime report 携带 `acceptance.provenanceSummary`，它也只是一段人类可读的来源说明，不是执行证明，不是 pass/fail 依据，也不参与 acceptance 决策。
+
+在来源枚举上，`metadata.executionSource` 应只使用 `provider-synthetic` / `provider-reserved` / `provider-less`：分别对应 synthetic-mock、reserved-unimplemented、provider-less-draft。它们都只是诚实来源标签，不表示真实 provider execution 已发生。
+
+## 6.2 建议策略：同构但不同 kind
+
+建议 runtime replay report 采用“同构字段 + 新 kind”的方式：
+
+> 当前 provider seam 真实边界：report 可以为未来 provider-backed mode 预留字段/slot，但这些 slot 仍然只能表达 reserved state，不能被解读成 provider execution 已接入。
+
+```yaml
+kind: runtime-replay-report
+reportVersion: 0.1.0-draft
+protocolVersion: runtime-replay-protocol-draft-1
+fixture:
+  path: ...
+  id: ...
+  version: ...
+  entry: ...
+  profile: ...
+status: draft | blocked
+summary:
+  passed: false
+  totalCases: number
+  passedCases: number
+  failedCases: number
+  blockedCases: number
+  warnings: number
+  errors: number
+cases:
+  - id: ...
+    type: positive|negative|edge
+    status: blocked|error|dry-run|not-executed
+    expectedBehavior: ...
+    observed: runtime-observed-stub
+    transcriptRef: null
+    failureReason: ...
+checks: []
+errors: []
+metadata:
+  generatedAt: ...
+  runner: reserved
+  sandbox: reserved
+  lineage:
+    static: ...
+    preflight: ...
+    replayCases: ...
+  note: runtime draft artifact only; no provider execution, no transcript evidence, no scoring result, no runtime pass evidence
+  acceptance:
+    status: pending | blocked
+    acceptedAt: null
+    acceptedBy: null
+    note: AcceptanceRecord contract skeleton only; `accepted-reserved` is frozen in enum but rejected by guard; NOT real acceptance/grading; NOT wired into validate main path
+pendingCapabilities: []
+```
+
+当前 Phase 3 这一小步若已落代码，也应只落到 runtime replay report skeleton builder 为止；`blocked` / `dry-run` / `not-executed` / `pendingCapabilities` / `metadata.note` 这些位的存在，本身就是为了防止外界误读成“真实 runtime replay 已经跑通”。
+
+进一步收敛后的 draft 合同建议是：
+
+1. 顶层 `status` 在当前 draft mode 只诚实落在 `draft | blocked`，不再伪装成 `passed | failed` 执行结论；
+2. `summary.passed` 固定为 `false`，直到真实 provider + transcript + scoring evidence 存在；
+3. `cases[].status` 当前 provider-backed reserved seam 只诚实允许 `blocked | error`；其中 `blocked` 绑定 `preflight-blocked` / guard-blocked 语义，`error` 只是保留给 orchestration/runtime skeleton / adapter internal error propagation 的 reserved slot，对外不能扩张成真实 provider execution failure taxonomy；preflight 未通过时也应在 runtime 层收口为 `blocked`；
+4. `adapter-error` 只是 internal semantic alias，对外必须继续序列化为 `error`，不能新增对外 status；同时 `report.failureReason` 与 case-level failure reason 当前必须 same-source，不能混 adapter / runner / report 多源 fallback；
+5. `observed` 必须保持 stub-shaped truth mapping output，不是 provider transcript，也不是 scoring evidence；当前 adapter result 只是更真实的中间 truth payload，`cases[].observed`、`providerExecution`、`transcriptAvailability` 与 `rawResponse` 只是共用同一来源的草案视图，四者同源，但都不能被解读成 provider integration、真实 provider call、transcript persistence 或正式 runtime pass 证据；其中 provider-backed reserved seam 下的 `executionId / providerRunId / providerStatus` 现在也可以作为 same-source stub tuple 出现在 `providerExecution` 相关视图里，但它们仍只是保守 metadata，且只停留在 metadata / execution seam，不代表真实 provider execution，也不会把 public case status 扩成新的对外 token；同时 `rawResponse` 只表示最小 skeleton / truth payload slot，`rawResponse.summary` 也只表示摘要位，不表示完整 provider payload，而 `rawResponse` / rawResponse handle 也都不是 transcript/persistence handle，也不能被解释成 provider payload capture/retrieval handle；`transcriptAvailability` / `transcriptRef.handle / providerManaged / providerTranscript / persistence` / `providerMetadata.transcriptPersistence` 也同样只是 reserved-only transcript attach-point seam，不能从 provider-less transcript stub、rawResponse、availability bit、或 execution metadata stub tuple 反推为“已有 provider transcript”或“已有 transcript persistence”；
+6. `metadata.note` 必须显式声明 no provider / no transcript / no scoring，且这里的 no transcript 指 no real provider transcript capture/retrieval/persistence，而不是否认 provider-less draft transcript stub 这种草案级 evidence ref 的存在；
+7. provider-backed mode 相关 slot 只能保持 reserved/unimplemented，CLI 不暴露对应模式；与 provider-backed slot 对应的 execution metadata、provider transcript、persistence、provider evidence flags 也都必须继续保持 `false` / `null` / reserved；
+8. 当前可达的 selection lineage 只是在内部沿 `adapter -> runner -> observed mapper -> report` 单一路径透传，不能被解读成 provider mode 已开放，也不能替代未来真实 provider integration 所需的 request/response/transcript/persistence contract；providerStatus 也只允许停留在 metadata / providerExecution seam，不进入 public case status 集合；
+9. lineage 通过 `metadata.lineage.static` / `metadata.lineage.preflight` / `metadata.lineage.replayCases` 引用上游来源，而不是把 runtime draft 说成新证据源。
+
+## 6.3 为什么不直接复用 validator report
+
+因为两者语义不同：
+
+- validator report 的 `checks[]` 是**规则检查结果**；
+- runtime replay report 的核心单位应该是 **cases[] 执行结果**。
+
+若强行复用同一 report 类型，会带来混淆：
+
+- `summary.total` 到底是 rules 数还是 cases 数？
+- `checks[].status=pass` 到底表示 rule pass 还是 case pass？
+- `findings` 到底是静态诊断还是运行失败？
+
+所以建议：
+
+1. **保留熟悉的 report shape 风格**；
+2. **新增 `kind` / `protocolVersion` 区分语义**；
+3. **把 case 结果放在 `cases[]`，而不是硬塞进 `checks[]`**。
+
+## 6.4 与 static report 的衔接方式
+
+建议 runtime replay report 只通过引用与 static report 关联，不混写：
+
+- `metadata.sourceStaticReportVersion`
+- `metadata.sourceStaticRuleSetVersion`
+- `metadata.sourceFixtureId`
+
+必要时还可保留：
+
+- `preflightRef`
+- `replayCasesRef`
+
+这样既能追溯 lineage，又不破坏现有 static artifact contract。
+
+---
+
+## 7. Runner / sandbox：本阶段只冻结接口，不实现能力
+
+> 当前进度补充：Phase 3 已新增 `src/skillforge/runtime-runner-contract.mjs`，用于冻结 runner 的单 case 输入/输出生产者合同；并已新增 `src/skillforge/runtime-sandbox-contract.mjs`，用于冻结 runner 消费的 sandbox boundary summary；并已新增 `src/skillforge/runtime-runner.mjs` + `src/skillforge/runtime-case-selector.mjs`，用于形成 single-case dry/null runner skeleton 的最小合同闭环。它们仍然不是真实 runtime runner、sandbox implementation、provider integration、transcript engine 或 scoring engine 的交付。
+
+## 7.1 本阶段建议冻结的接口层
+
+Milestone D 最初只建议冻结**抽象接口层**、不实现 runner；当前 Phase 3 已落地的 `runtime-runner.mjs` 仅是 single-case dry/null skeleton，用来证明接口可接线，不代表真实 runner 已实现。
+
+最小接口可分为 4 类：
+
+### A. Replay case selector
+
+职责：决定哪些 case 进入本次 replay。
+
+建议接口意图：
+
+- 输入：fixture / replay-cases / filter
+- 输出：selected cases
+
+### B. Preflight evaluator
+
+职责：在执行前判定 runtime-ready。
+
+建议接口意图：
+
+- 输入：normalized fixture + static report
+- 输出：preflight result
+
+### C. Runtime runner
+
+职责：执行单 case 或批量 case。
+
+建议接口意图：
+
+- 输入：selected case + execution context
+- 输出：case execution result
+
+当前已冻结的最小单 case contract 输入/输出面为：
+
+> 这里的 provider adapter seam 只保证“未来 provider adapter 应该吃什么、吐什么”这一层 contract，不保证 provider-backed mode 已可运行。
+
+```ts
+input = {
+  fixtureDir,
+  loadedFixture,
+  normalizedFixture,
+  preflightReport,
+  caseRecord,
+  boundary: {
+    permissions,
+    toolBoundary,
+  },
+  options,
+}
+
+output = {
+  caseId,
+  status,
+  observed,
+  transcriptRef,
+  failureReason,
+  runnerMetadata,
+}
+```
+
+这里的关键点是：
+
+- runner 读取的是 `normalize + preflight` 已经整理好的上游事实，而不是自己重造解析逻辑；
+- `boundary` 目前只是声明式消费面，不等于真实 sandbox enforcement；
+- 当前 provider-backed reserved seam 对外 status 只应诚实落在 `blocked | error`：`blocked` 对应 preflight/guard blocked，`error` 只保留给 runtime skeleton/internal propagation；`adapter-error` 仍只作 internal alias，对外统一序列化为 `error`；
+- provider-backed status/path 仍未开放，相关 mode slot 只是 reserved/unimplemented，也还不是完整 provider execution failure taxonomy。
+
+### D. Transcript sink / artifact writer
+
+职责：在后续能力存在时，把 execution evidence 写成独立 artifact 引用。
+
+建议接口意图：
+
+- 输入：transcript / observed / summary
+- 输出：artifact ref
+
+当前 Phase 3 已落地的边界更窄：
+
+- 只允许 provider-less draft transcript evidence；
+- 只允许单 selected case 的 in-report draft transcript artifact ref；
+- `transcriptRef` 语义是“runtime draft report 内的草案级 transcript artifact ref”，不是持久化存储句柄；
+- 必须显式保持 `providerTranscript=false`；
+- `availability / providerManaged / providerTranscript / persistence` 当前都只是 reserved attach-point contract，不代表真实 provider transcript capture/retrieval/persistence 已存在；
+- `rawResponse` 语义是最小 skeleton / truth payload slot；若出现 `rawResponse.summary`，它也只是摘要位，不是完整 provider payload capture，也不代表 payload retrieval 已存在；
+- `rawResponse` / rawResponse handle 不是 transcript/persistence handle，也不是 provider payload retrieval handle，且当前不再允许与 `transcriptRef.handle` 做混源 fallback；
+- `cases[].observed`、`providerExecution`、`transcriptAvailability` 现在由同一个 observed mapping seam 同源产出，并且 selection 只允许沿 `adapter -> runner -> observed mapper -> report` 这一内部单一路径传播：这是为了统一 truth channel，不是为了宣称 provider-backed execution / provider transcript / persistence 已经接通；
+- 不支持 provider transcript、transcript persistence、multi-case aggregate transcript artifact。
+
+## 7.1.1 Sandbox boundary contract（已冻结的最小声明面）
+
+当前已冻结的 runtime sandbox boundary contract 输入/输出面为：
+
+```ts
+input = {
+  permissions,
+  toolBoundary,
+  sideEffectPolicy,
+  sandboxMode,
+  network,
+  filesystem,
+  externalMessaging,
+}
+
+output = {
+  boundarySummary,
+  reservedCapabilities,
+  warnings,
+}
+```
+
+其中：
+
+- `boundarySummary` 是 runner 后续唯一应消费的声明式边界摘要，不应再发明第二套边界字段；
+- `reservedCapabilities` 只表达未来可能补齐的能力位，例如 network/filesystem/external messaging isolation，不代表这些能力已存在；
+- `warnings` 默认应明确指出当前阶段只有 contract，没有 sandbox enforcement；
+- `sideEffectPolicy` / `sideEffectGuard` / `sandboxMode` 目前都只是声明字段，不构成真实隔离执行证据。
+
+## 7.2 本阶段冻结哪些“输入面”
+
+建议只冻结以下输入面，而不是内部实现：
+
+1. `normalizedFixture` 作为 preflight 的首选上游对象；
+2. `replay-cases.yaml` 作为 case declaration source；
+3. runtime replay report / preflight result 作为目标 artifact；
+4. runner 必须接受明确的 permissions / boundary context；
+5. transcript 必须是独立 evidence，而不是回填到 declaration 文件。
+
+## 7.3 本阶段明确不实现的能力
+
+Milestone D / 当前 Phase 3 虽然已经有独立 runtime draft CLI 与 preflight→single-case dry/null runtime skeleton orchestration，但仍明确不做：
+
+- 不接真实模型 provider；
+- 不做 transcript engine；
+- 不做 provider-backed runtime replay；
+- 不做 transcript persistence；
+- 不做 provider transcript；
+- 不做 sandbox implementation / sandbox enforcement；
+  - 当前只有 sandbox enforcement reserved stub（`buildSandboxStub`、`buildSandboxStubProviderReserved`、`assertSandboxStubContract`、`SANDBOX_MODES`）；`enforced` 永远为 `false`，`sandboxMode` 只允许 `"none"` 和 `"reserved-pending"`；这不是真实 sandbox isolation / timeout / resource limits，不构成真实执行隔离证据
+- 不做 tool execution adapter；
+- 不做 scoring engine（当前只有 scoring reserved stub：`buildScoringStub`、`buildScoringStubProviderReserved`、`assertScoringStubContract`、`SCORING_MODES`；`scored` 永远为 `false`，`scoringMode` 只允许 `"none"` 和 `"reserved-pending"`；这不是真实评分引擎，不开放 `passed` 状态）；
+- 不做 sandbox enforcement（当前只有 sandbox enforcement reserved stub：`buildSandboxStub`、`buildSandboxStubProviderReserved`、`assertSandboxStubContract`、`SANDBOX_MODES`；`enforced` 永远为 `false`，`sandboxMode` 只允许 `"none"` 和 `"reserved-pending"`；这不是真实 sandbox isolation / timeout / resource limits，不构成真实执行隔离证据）；
+- 不做多 case / 多 fixture orchestration；当前只有 multi-case orchestration reserved stub（`buildMultiCaseStub`、`buildMultiCaseStubProviderReserved`、`assertMultiCaseStubContract`、`CASE_MODES`）；`caseMode` 永远为 `single`，`CASE_MODES` 只允许 `"single"` 和 `"reserved-multi"` 两个值；这不是真实 multi-case parallel/batch execution，也不存在 case dependency orchestration；
+- 不做多模型/多平台矩阵执行器；
+- 不把 runtime 入口混进 `validate:all`、`validate:contracts`、`validate:preflight:contracts` 或其他 static/preflight 默认链路。
+
+补充说明：当前仓库虽然已经存在 single-case dry/null runner skeleton 与独立 `pnpm validate:runtime:contracts` 测试入口，但它们只用于冻结 contract 与诚实性边界，不代表真实 runtime replay/provider/transcript/sandbox enforcement 已实现。
+
+补充到 transcript 口径：当前新增的 transcript evidence 若存在，也只是在 runtime draft artifact 范围内表达 provider-less evidence，不进入统一 validate family，不构成 provider transcript，也不构成 transcript persistence 证明。
+
+再收紧一层：transcript capture reserved skeleton 已冻结（`captureProviderTranscriptStub`、`assertTranscriptCaptureStubContract`、`TRANSCRIPT_CAPTURE_MODES`），但这只表示 reserved seam 的代码骨架存在，不表示真实 transcript capture/retrieval/persistence 已实现。`captured` 在当前阶段永远为 `false`；`captureMode` 只允许 `"none"` 和 `"reserved-provider-captured"` 两个值。`transcriptAvailability` / `transcriptRef.handle` / `providerManaged` / `providerTranscript` / `persistence` / `providerMetadata.transcriptPersistence` 现在都只能被解释为 **reserved-only contract seam**。它们表示未来真实 provider transcript capture / retrieval / persistence 若接入时，应该沿 `adapter -> runner -> observed mapper -> report` 哪些字段传播；不表示当前已经具备 provider transcript handle、provider-managed retrieval、provider transcript availability 或 transcript persistence。provider-less transcript stub 也不得被升级解释成 provider transcript；non-provider-backed 路径则仍必须把这些位统一回落到 `available=false`、`providerManaged=false`、`providerTranscript=false`、`handle=null`、`transcriptPersistence=false`、`persistence="none"`，不能做 mixed-source fallback。
+
+补充到 checklist 口径：后续真实 provider-backed 子计划需要补齐哪些字段、哪些 reserved slot 当前必须继续保持 `false/null/reserved`，已另行整理在 `docs/phase-3-provider-backed-slot-contract-checklist.md`。那份清单是 implementation-prep，不是 provider integration 完成证明。
+
+当前 draft artifact 也不应把 `passedCases > 0` 解读成 runtime 已通过；这些计数字段仅保留同构 shape，为后续 provider 子计划承接留接口。
+
+同理，当前若存在 `transcriptRef`，也不能把它解读成 transcript 系统已经打通。它只表示：当前 report 内部存在一个 provider-less draft transcript evidence 引用位，用于单 case 证据表达与合同诚实性约束。
+
+同理，当前若存在 `rawResponse`，也不能把它解读成完整 provider payload capture、transcript 记录或持久化检索句柄。它只是最小 skeleton / truth payload slot；它与 transcript handle 当前不再混源 fallback。
+
+---
+
+## 8. 建议的 preflight 最小检查项
+
+为了让后续任务有可落地的 contract，建议预先冻结一组轻量检查项，但仍然保持“文档先行”：
+
+| 建议 ID | 含义 | 阻断级别 |
+| --- | --- | --- |
+| `RF-P1-PREFLIGHT-STATIC-BASELINE-PASSED` | static baseline 已通过 | P1 |
+| `RF-P1-PREFLIGHT-REPLAY-CASES-MINIMAL` | replay cases 结构完整 | P1 |
+| `RF-P1-PREFLIGHT-CASE-IDENTITY-STABLE` | 每个 case 有稳定 id/type | P1 |
+| `RF-P0-PREFLIGHT-FORGED-RUNTIME-RESULT` | 存在伪造 runtime 结果 | P0 |
+| `RF-P1-PREFLIGHT-BOUNDARY-DECLARED` | permissions / boundary 可判定 | P1 |
+| `RF-P2-PREFLIGHT-RUNTIME-HINT-MISSING` | 缺少推荐 runtime hint | P2 |
+| `RF-P2-PREFLIGHT-PROFILE-NOT-YET-TIERED` | profile 尚未进入更细 runtime tier | P2 |
+
+注意：这些只是**协议级建议 ID**，不是当前已实现规则，也不要求马上写进 `validator.mjs`。
+
+---
+
+## 9. 明确不做项
+
+为防止范围膨胀，Milestone D 需要明确写死以下非目标：
+
+1. **不把当前 draft orchestration 写成真实 runtime runner。**
+2. **不接模型 provider / API。**
+3. **不做 transcript engine。**
+4. **不做 sandbox 执行器 / enforcement。**
+5. **不做自动评分系统。** 当前只有 scoring reserved stub（`buildScoringStub`、`buildScoringStubProviderReserved`、`assertScoringStubContract`、`SCORING_MODES`）；`scored` 永远为 `false`，`scoringMode` 只允许 `"none"` 和 `"reserved-pending"`。这不是真实评分引擎，不开放 `passed` 状态。
+6. **不把 runtime 混进 `validate:all`。**
+7. **不把 runtime 混进 `validate:contracts`。**
+8. **不把 `replay-cases.yaml` 改造成结果数据库。**
+9. **不回填伪造 observed/passed。**
+10. **不宣称 runtime-ready 就等于 runtime-pass。**
+
+这是本文最重要的边界之一：**Milestone D 只是协议冻结，不是能力交付。**
+
+---
+
+## 10. 推荐推进顺序
+
+建议负责人的后续顺序为：
+
+```text
+协议文档
+  -> artifact schema
+  -> preflight contract
+  -> runner / sandbox 接口
+  -> runner / sandbox 实现（若继续）
+```
+
+具体解释：
+
+### 第一步：协议文档
+
+先把对象、边界、语义定清楚，避免后续实现反复返工。
+
+### 第二步：artifact schema
+
+先定义：
+
+- `replay-cases.yaml` runtime-ready 约束；
+- preflight result artifact shape；
+- runtime replay report artifact shape。
+
+但此时仍可不写执行器。
+
+### 第三步：preflight contract
+
+preflight 是 runtime 的最小门槛，也是最不冒进的一步。它依赖 static + normalize 层，却不需要接模型。
+
+### 第四步：runner / sandbox 接口
+
+只冻结输入输出面，不急着做实现。这样负责人可以先判断：
+
+- 是否值得继续做 runtime；
+- 是先做 mock runner，还是直接接真实 provider；
+- sandbox 是否单独立项。
+
+### 第五步：实现阶段（可选，后续再定）
+
+只有在前 4 步都清楚后，才建议进入真正实现。
+
+---
+
+## 11. 风险与注意事项
+
+## 11.1 最大风险：把 static 体系污染成伪 runtime
+
+当前系统最大的优点，是边界还算诚实：
+
+- static 就说 static；
+- replay 只检查诚实性；
+- 没执行就不写 passed。
+
+Milestone D 最需要避免的，就是为了“看起来接近 runtime”，把 declaration、preflight、execution result 混成一锅。
+
+## 11.2 normalize 层是最自然的 preflight 接缝
+
+如果后续 preflight 绕开 `normalizeFixture`，重新从 YAML 直接拼装 runtime 输入，很容易出现：
+
+- profile 解析不一致；
+- permissions 归并不一致；
+- boundary 解释不一致；
+- static 与 runtime 对同一 fixture 的理解分叉。
+
+所以后续若继续，建议把 `normalizeFixture` 视为 preflight 的天然上游接口。
+
+## 11.3 现有 schema 仍偏轻量
+
+`schema.mjs` 现在只是 lightweight gate，不是完整 artifact schema engine。
+因此本文的“协议冻结”要诚实：它只是给后续 schema 子任务提供目标，不是说当前 schema 已覆盖 runtime-ready 语义。
+
+## 11.4 report 兼容要“同构，不混型”
+
+runtime report 最好长得像现有 report，方便人读和下游接入；
+但不能假装自己就是 validator report，否则统计口径会立刻乱掉。
+
+---
+
+## 12. 决策摘要
+
+如果负责人要决定“是否继续进入下一子任务”，本文给出的建议结论是：
+
+1. **可以继续进入下一步，但应先做协议后的 schema / contract 子任务，不应直接开写 runner。**
+2. **最安全的下一步是：先定义 preflight result 与 runtime replay report 的 artifact schema。**
+3. **`normalizeFixture` 已经提供了一个自然、低风险的 preflight 输入层，值得沿用。**
+4. **现阶段不应把 runtime 接进 `validate:all` / `validate:contracts`，否则会破坏当前 static MVP 的证据口径。**
+5. **若负责人希望保守推进，Milestone D 到“协议文档 + artifact schema 草案”即可停，先不承诺实现。**
+
+最终建议：**继续，但只进入“协议 → schema → preflight contract”这一窄路径；暂不进入 runner 实现。**
