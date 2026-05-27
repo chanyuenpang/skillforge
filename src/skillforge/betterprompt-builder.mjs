@@ -307,10 +307,10 @@ function buildUserTemplate(task, runtime) {
 }
 
 function buildInputSlots(task) {
-  const slots = ['task_goal'];
-  if (task.id) slots.push('task_id');
-  if (task.success_criteria) slots.push('success_criteria');
-  return slots;
+  // Keep slots aligned with user_template placeholders expected by QC.
+  // task_id / success_criteria are useful metadata but should not be declared
+  // as required input slots unless template binds them.
+  return ['task_goal'];
 }
 
 function buildExecutionHints(constraints, selectedSkills) {

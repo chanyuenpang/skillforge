@@ -21,7 +21,8 @@
     "validate:spawn:runtime:contract": "node scripts/test-spawn-spec-runtime-contract.mjs",
     "validate:plan:prompt:spawn": "node scripts/test-plan-prompt-spawn-integration.mjs",
     "validate:betterprompt:builder": "node scripts/test-betterprompt-builder.mjs",
-    "validate:skill:bundle:loader": "node scripts/test-skill-bundle-loader.mjs"
+    "validate:skill:bundle:loader": "node scripts/test-skill-bundle-loader.mjs",
+    "validate:milestone:f:gray": "node scripts/skillforge-milestone-f-gray-acceptance.mjs"
   },
   "dependencies": {
     "zod": "^4.4.3"
