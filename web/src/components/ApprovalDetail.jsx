@@ -158,42 +158,7 @@ export default function ApprovalDetail() {
           <StatusBadge status={approval?.status || 'pending'} />
         </div>
         <div className="card-body">
-          {/* ── Human-readable summary (first screen) ── */}
-            {(() => {
-              const desc = risk?.summary || detail?.description;
-              if (desc) {
-                return (
-                  <div style={{
-                    marginBottom: 'var(--space-md)',
-                    padding: '12px 14px',
-                    borderRadius: 8,
-                    borderLeft: '4px solid var(--primary, #3b82f6)',
-                    background: 'rgba(59,130,246,0.05)',
-                    fontSize: '0.9rem',
-                    lineHeight: 1.7,
-                  }}>
-                    {desc}
-                  </div>
-                );
-              }
-              const skillName = detail?.skillName || detail?.title || detail?.workflowName || fid;
-              const riskLabel = risk?.riskType || '风险';
-              const statusLabel = approval?.status === 'pending' ? '正在等待审批' : approval?.status === 'granted' ? '已通过' : approval?.status === 'denied' ? '已拒绝' : '审批中';
-              return (
-                <div style={{
-                  marginBottom: 'var(--space-md)',
-                  padding: '12px 14px',
-                  borderRadius: 8,
-                  borderLeft: '4px solid var(--primary, #3b82f6)',
-                  background: 'rgba(59,130,246,0.05)',
-                  fontSize: '0.9rem',
-                  lineHeight: 1.7,
-                }}>
-                  审批对象「<strong>{skillName}</strong>」的{riskLabel}类风险{statusLabel}
-                </div>
-              );
-            })()}
-            <div className="meta-row">
+          <div className="meta-row">
             {risk?.riskType && <span>🏷 {risk.riskLabel || risk.riskType}</span>}
             {risk?.severity && (
               <span>
@@ -205,17 +170,36 @@ export default function ApprovalDetail() {
             {review?.round > 1 && <span>审核轮次: 第 {review.round} 轮</span>}
           </div>
 
-          {risk?.summary && (
-            <div style={{ marginBottom: 'var(--space-md)' }}>
-              <div className="field-label" style={{ marginBottom: '4px' }}>风险摘要</div>
-              <div style={{ fontSize: '0.9rem', lineHeight: 1.7 }}>{risk.summary}</div>
-            </div>
-          )}
+          {/* ── Human-readable summary (first screen) ── */}
+          {(() => {
+            const summaryText = risk?.summary || detail?.description;
+            if (!summaryText) return null;
+
+            return (
+              <div
+                style={{
+                  marginBottom: 'var(--space-md)',
+                  padding: '12px',
+                  borderRadius: 8,
+                  borderLeft: '4px solid #9ca3af',
+                  background: '#f3f4f6',
+                  fontSize: '0.9rem',
+                  lineHeight: 1.7,
+                }}
+              >
+                {summaryText}
+              </div>
+            );
+          })()}
 
           <div className="detail-grid">
-                        <div className="detail-field">
+            <div className="detail-field">
               <span className="field-label">审批状态</span>
               <span className="field-value"><StatusBadge status={approval?.status || 'pending'} /></span>
+            </div>
+            <div className="detail-field">
+              <span className="field-label">技能 ID</span>
+              <span className="field-value"><code style={{ fontSize: '0.82rem' }}>{fid}</code></span>
             </div>
             {detail.source && (
               <div className="detail-field">

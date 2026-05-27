@@ -15,21 +15,19 @@ function renderType(type) {
 }
 
 
-function isWeakTitle(v) {
-  if (typeof v !== "string") return true;
-  const trimmed = v.trim();
-  if (!trimmed) return true;
-  const WEAK = /^[\s\-_.…··]+$/;
-  if (WEAK.test(trimmed)) return true;
-  const WEAK_WORDS = new Set(["-", "--", "...", "untitled", "unnamed", "n/a", "none", "null", "undefined", "unknown", "无", "未命名", "暂无", "na", "nil", "empty", "tbd", "todo"]);
-  if (WEAK_WORDS.has(trimmed.toLowerCase())) return true;
-  return false;
+const WEAK_TITLE_RE = /^(-{1,3}|untitled|unnamed|n\/a|none|null|\.{2,}|\s*)$/i;
+function isWeakTitle(value) {
+  if (!value || typeof value !== 'string') return true;
+  const trimmed = value.trim();
+  return !trimmed || WEAK_TITLE_RE.test(trimmed);
 }
 
 function getDisplayTitle(item) {
-  if (item?.title && !isWeakTitle(item.title)) return item.title;
-  if (item?.name && !isWeakTitle(item.name)) return item.name;
-  return item?.id || "-";
+  const candidates = [item?.title, item?.name, item?.id];
+  for (const candidate of candidates) {
+    if (candidate && !isWeakTitle(candidate)) return candidate;
+  }
+  return item?.id || '-';
 }
 
 function getSecondaryLabel(item) {
