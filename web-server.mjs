@@ -38,6 +38,7 @@ import {
   buildExecutionLogEntry,
 } from './src/skillforge/execution-log-store.mjs';
 import { buildBetterWorkflowRunCenterView } from './src/skillforge/betterworkflow-run-center-view.mjs';
+import { buildBetterPromptRunCenterView } from './src/skillforge/betterprompt-run-center-view.mjs';
 import {
   buildPlanLogEntry,
   save as savePlanLog,
@@ -782,6 +783,14 @@ function mapRunItem(log) {
       base.betterWorkflowRunCenterView = buildBetterWorkflowRunCenterView(log);
     } catch {
       base.betterWorkflowRunCenterView = null;
+    }
+  }
+
+  if (base.source === 'betterprompt-pipeline') {
+    try {
+      base.betterPromptRunCenterView = buildBetterPromptRunCenterView(log);
+    } catch {
+      base.betterPromptRunCenterView = null;
     }
   }
 

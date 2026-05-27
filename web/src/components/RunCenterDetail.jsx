@@ -760,6 +760,82 @@ export default function RunCenterDetail() {
                 </section>
               ) : null}
 
+              {/* ── betterPrompt Run Center View ── */}
+              {detail?.betterPromptRunCenterView ? (
+                <section
+                  style={{
+                    marginTop: 10,
+                    marginBottom: 14,
+                    padding: '12px 14px',
+                    borderRadius: 8,
+                    borderLeft: '3px solid #0ea5e9',
+                    background: 'linear-gradient(135deg, rgba(14,165,233,0.06) 0%, rgba(6,182,212,0.04) 100%)',
+                  }}
+                >
+                  <h3 style={{ margin: '0 0 8px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
+                        color: '#fff',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        letterSpacing: '0.02em',
+                      }}
+                    >
+                      BP
+                    </span>
+                    BetterPrompt 运行概况
+                  </h3>
+                  <dl className="run-meta-grid" style={{ margin: 0 }}>
+                    {detail.betterPromptRunCenterView.title ? (
+                      <>
+                        <dt>标题</dt>
+                        <dd style={{ fontWeight: 600 }}>{detail.betterPromptRunCenterView.title}</dd>
+                      </>
+                    ) : null}
+                    {detail.betterPromptRunCenterView.summary ? (
+                      <>
+                        <dt>摘要</dt>
+                        <dd>{detail.betterPromptRunCenterView.summary}</dd>
+                      </>
+                    ) : null}
+                    {Array.isArray(detail.betterPromptRunCenterView.selected_skills) && detail.betterPromptRunCenterView.selected_skills.length > 0 ? (
+                      <>
+                        <dt>Selected Skills</dt>
+                        <dd>{detail.betterPromptRunCenterView.selected_skills.join(', ')}</dd>
+                      </>
+                    ) : null}
+                    {detail.betterPromptRunCenterView.qc_result ? (
+                      <>
+                        <dt>QC Result</dt>
+                        <dd>{typeof detail.betterPromptRunCenterView.qc_result === 'string' ? detail.betterPromptRunCenterView.qc_result : JSON.stringify(detail.betterPromptRunCenterView.qc_result)}</dd>
+                      </>
+                    ) : null}
+                    {detail.betterPromptRunCenterView.promptPackageType ? (
+                      <>
+                        <dt>Prompt Package</dt>
+                        <dd><code>{detail.betterPromptRunCenterView.promptPackageType}</code></dd>
+                      </>
+                    ) : null}
+                    {detail.betterPromptRunCenterView.planRef ? (
+                      <>
+                        <dt>Plan Ref</dt>
+                        <dd><code>{detail.betterPromptRunCenterView.planRef}</code></dd>
+                      </>
+                    ) : null}
+                    {detail.betterPromptRunCenterView.taskRef ? (
+                      <>
+                        <dt>Task Ref</dt>
+                        <dd><code>{detail.betterPromptRunCenterView.taskRef}</code></dd>
+                      </>
+                    ) : null}
+                  </dl>
+                </section>
+              ) : null}
+
               {/* ── betterWorkflow Run Center View ── */}
               {detail?.betterWorkflowRunCenterView ? (
                 <section
