@@ -760,6 +760,106 @@ export default function RunCenterDetail() {
                 </section>
               ) : null}
 
+              {/* ── betterWorkflow Run Center View ── */}
+              {detail?.betterWorkflowRunCenterView ? (
+                <section
+                  style={{
+                    marginTop: 10,
+                    marginBottom: 14,
+                    padding: '12px 14px',
+                    borderRadius: 8,
+                    borderLeft: '3px solid #7c3aed',
+                    background: 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(168,85,247,0.04) 100%)',
+                  }}
+                >
+                  <h3 style={{ margin: '0 0 8px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                        color: '#fff',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        letterSpacing: '0.02em',
+                      }}
+                    >
+                      BW
+                    </span>
+                    BetterWorkflow 运行概况
+                  </h3>
+                  <dl className="run-meta-grid" style={{ margin: 0 }}>
+                    {detail.betterWorkflowRunCenterView.title ? (
+                      <>
+                        <dt>标题</dt>
+                        <dd style={{ fontWeight: 600 }}>{detail.betterWorkflowRunCenterView.title}</dd>
+                      </>
+                    ) : null}
+                    {detail.betterWorkflowRunCenterView.summary ? (
+                      <>
+                        <dt>摘要</dt>
+                        <dd>{detail.betterWorkflowRunCenterView.summary}</dd>
+                      </>
+                    ) : null}
+                    {detail.betterWorkflowRunCenterView.counts ? (
+                      <>
+                        <dt>统计</dt>
+                        <dd>
+                          里程碑 {detail.betterWorkflowRunCenterView.counts.milestones || 0}
+                          {' · '}任务 {detail.betterWorkflowRunCenterView.counts.tasks || 0}
+                          {' · '}阶段 {detail.betterWorkflowRunCenterView.counts.phases || 0}
+                          {' · '}依赖 {detail.betterWorkflowRunCenterView.counts.dependencies || 0}
+                          {' · '}原子任务 {detail.betterWorkflowRunCenterView.counts.atomicTasks || 0}
+                        </dd>
+                      </>
+                    ) : null}
+                    {detail.betterWorkflowRunCenterView.planRef ? (
+                      <>
+                        <dt>Plan Ref</dt>
+                        <dd><code>{detail.betterWorkflowRunCenterView.planRef}</code></dd>
+                      </>
+                    ) : null}
+                    {detail.betterWorkflowRunCenterView.taskRef ? (
+                      <>
+                        <dt>Task Ref</dt>
+                        <dd><code>{detail.betterWorkflowRunCenterView.taskRef}</code></dd>
+                      </>
+                    ) : null}
+                    {detail.betterWorkflowRunCenterView.workflowRef ? (
+                      <>
+                        <dt>Workflow</dt>
+                        <dd><code>{detail.betterWorkflowRunCenterView.workflowRef}</code></dd>
+                      </>
+                    ) : null}
+                    {detail.betterWorkflowRunCenterView.inputSummary?.project ? (
+                      <>
+                        <dt>项目</dt>
+                        <dd>{detail.betterWorkflowRunCenterView.inputSummary.project}</dd>
+                      </>
+                    ) : null}
+                    {detail.betterWorkflowRunCenterView.inputSummary?.background ? (
+                      <>
+                        <dt>背景</dt>
+                        <dd>{detail.betterWorkflowRunCenterView.inputSummary.background}</dd>
+                      </>
+                    ) : null}
+                    {detail.betterWorkflowRunCenterView.inputSummary?.timebox ? (
+                      <>
+                        <dt>时间框</dt>
+                        <dd>{detail.betterWorkflowRunCenterView.inputSummary.timebox}</dd>
+                      </>
+                    ) : null}
+                    {detail.betterWorkflowRunCenterView.artifactRef ? (
+                      <>
+                        <dt>Artifact</dt>
+                        <dd><code>{detail.betterWorkflowRunCenterView.artifactRef}</code></dd>
+                      </>
+                    ) : null}
+                  </dl>
+                </section>
+              ) : null}
+
               {/* 次级元数据栏（runId 退到 footer） */}
               <BackChain fromPath={fromPath} onFallbackBack={handleFallbackBack} />
               <MetaBar
