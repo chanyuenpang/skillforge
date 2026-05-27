@@ -62,6 +62,9 @@ function extractPipelineStats(pipelineResult) {
  * @param {string} [opts.workflowRef]  - human reference label (optional, defaults to input summary slug)
  * @param {number} [opts.durationMs]   - pipeline wall-clock duration in ms (optional)
  * @param {string} [opts.status]       - "completed" | "failed" (default "completed")
+ * @param {string|null} [opts.planRef] - optional plan reference (plan id/path/logical ref)
+ * @param {string|null} [opts.taskRef] - optional task reference under the plan
+ * @param {object|null} [opts.traceRefs] - optional minimal context refs
  * @returns {object} execution log record
  */
 export function buildBetterWorkflowExecutionRecord(input, pipelineResult, opts = {}) {
@@ -105,7 +108,9 @@ export function buildBetterWorkflowExecutionRecord(input, pipelineResult, opts =
     // ── refs ───────────────────────────────────────────────────────
     workflowRef,
     artifactPath: opts.artifactPath ?? null,
-    planRef: null, // reserved for future plan/runtime link
+    planRef: opts.planRef ?? null,
+    taskRef: opts.taskRef ?? null,
+    traceRefs: opts.traceRefs ?? null,
   };
 }
 

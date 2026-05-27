@@ -45,10 +45,19 @@ console.log(JSON.stringify(pipelineResult.summary, null, 2));
 
 // ── 2) build execution record ────────────────────────────────────
 const artifactPath = "/tmp/betterworkflow-artifact-dummy.json";
+const planRef = "skillforge/milestone-b/betterworkflow/trace-link";
+const taskRef = "task-33";
+
 const record = buildBetterWorkflowExecutionRecord(sampleInput, pipelineResult, {
   artifactPath,
   durationMs,
   status: "completed",
+  planRef,
+  taskRef,
+  traceRefs: {
+    session: "agent:coding-agent:subagent:39ccabf3-bbda-4aa2-bc78-d703d4376c9f",
+    run: "milestone-b-step-33",
+  },
 });
 
 console.log("\n=== Execution record ===");
@@ -81,7 +90,9 @@ const checks = [
   { label: "phaseCount === 3", pass: record.phaseCount === 3 },
   { label: "taskCount === 6", pass: record.taskCount === 6 },
   { label: "dependencyCount === 3", pass: record.dependencyCount === 3 },
-  { label: "planRef is null (reserved)", pass: record.planRef === null },
+  { label: "planRef recorded", pass: record.planRef === planRef },
+  { label: "taskRef recorded", pass: record.taskRef === taskRef },
+  { label: "traceRefs.run recorded", pass: record.traceRefs?.run === "milestone-b-step-33" },
   { label: "status === completed", pass: record.status === "completed" },
   { label: "durationMs is a positive number", pass: typeof record.durationMs === "number" && record.durationMs >= 0 },
 ];
