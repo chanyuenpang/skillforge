@@ -318,7 +318,7 @@ export function linkReadyTasks({
 
     // 2. betterPrompt attempt (with fallback)
     const betterPromptInput = buildBetterPromptInput(task, resolvedSkills);
-    const betterPromptPackage = buildBetterPromptPackage(betterPromptInput);
+    const betterPromptPackage = await buildBetterPromptPackage(betterPromptInput);
     const betterPromptQc = evaluateBetterPromptPackage(betterPromptPackage);
     const betterPromptAccepted = betterPromptQc.pass === true;
     const finalPromptText = betterPromptAccepted

@@ -103,14 +103,14 @@ const sample3 = {
 let total = 0;
 let passed = 0;
 
-function runSample(label, input) {
+async function runSample(label, input) {
   total++;
   console.log(`\n${'='.repeat(60)}`);
   console.log(`📦 ${label}`);
   console.log(`${'='.repeat(60)}`);
 
   try {
-    const result = buildBetterPromptPackage(input);
+    const result = await buildBetterPromptPackage(input);
     const { package: pkg, qc_result, _debug } = result;
 
     // 1. 输出 schema 校验
@@ -171,9 +171,9 @@ function runSample(label, input) {
 
 // ── Run ──────────────────────────────────────────────────────────────────
 
-runSample('样本 1: 契约落地任务', sample1);
-runSample('样本 2: Builder 实现任务（自身）', sample2);
-runSample('样本 3: 最小化输入', sample3);
+await runSample('样本 1: 契约落地任务', sample1);
+await runSample('样本 2: Builder 实现任务（自身）', sample2);
+await runSample('样本 3: 最小化输入', sample3);
 
 // ── Summary ──────────────────────────────────────────────────────────────
 

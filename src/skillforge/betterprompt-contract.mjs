@@ -65,6 +65,8 @@ export const BetterPromptOutput = z.object({
   package_id: NonEmptyString,
   intent: IntentSchema,
   selected_skills: z.array(NonEmptyString).optional(),
+  recommended_bundle_refs: z.array(NonEmptyString).optional(),
+  suggested_skill_refs: z.array(NonEmptyString).optional(),
   prompt: PromptSchema,
   execution_hints: z.array(NonEmptyString).optional(),
   guardrails: GuardrailsSchema,

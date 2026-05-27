@@ -33,7 +33,7 @@ function detectFallbackOrUnstable(sample, built, evaluated, buildError) {
   return flags;
 }
 
-function runOne(sample) {
+async function runOne(sample) {
   const validation = validateBetterPromptInput(sample.input);
   const inputValid = validation.success;
 
@@ -43,7 +43,7 @@ function runOne(sample) {
 
   if (inputValid) {
     try {
-      built = buildBetterPromptPackage(validation.data);
+      built = await buildBetterPromptPackage(validation.data);
       evaluated = evaluateBetterPromptPackage(built.package);
     } catch (error) {
       buildError = error;
@@ -96,8 +96,8 @@ function summarize(results) {
   };
 }
 
-function main() {
-  const results = BETTERPROMPT_SAMPLES.map(runOne);
+async function main() {
+  const results = await Promise.all(BETTERPROMPT_SAMPLES.map(runOne));
   const summary = summarize(results);
 
   const output = {
@@ -110,4 +110,4 @@ function main() {
   console.log(JSON.stringify(output, null, 2));
 }
 
-main();
+await main();

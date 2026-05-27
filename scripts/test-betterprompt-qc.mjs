@@ -28,7 +28,7 @@ const goodInput = {
   },
 };
 
-const { package: goodPkg } = buildBetterPromptPackage(goodInput);
+const { package: goodPkg } = await buildBetterPromptPackage(goodInput);
 const goodResult = evaluateBetterPromptPackage(goodPkg);
 
 // bad sample: 破坏关键字段与一致性

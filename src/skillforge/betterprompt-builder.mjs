@@ -7,6 +7,10 @@
 // Pure — no I/O, no execution-log, no Run Center.
 
 import { validateBetterPromptInput, validateBetterPromptOutput } from './betterprompt-contract.mjs';
+import { loadSkillBundlesFromDir } from './skill-bundle-loader.mjs';
+import { matchBundles } from './skill-bundle-matcher.mjs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // ── Built-in skill catalog (minimal MVP) ───────────────────────────────────
 
@@ -64,6 +68,9 @@ const KEYWORD_CAPABILITIES = [
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function generatePackageId() {
   const ts = Date.now().toString(36);
@@ -440,7 +447,7 @@ function runQC(outputPkg, selectedSkills, input) {
  * @param {Object} input - BetterPromptInput object
  * @returns {{ package: Object, qc_result: Object }}
  */
-export function buildBetterPromptPackage(input) {
+export async function buildBetterPromptPackage(input) {
   // Step 0: Validate input
   const validated = validateBetterPromptInput(input);
   if (!validated.success) {
@@ -456,8 +463,38 @@ export function buildBetterPromptPackage(input) {
   // Step 1: Extract capability slots
   const slots = extractCapabilitySlots(task, constraints);
 
+  // Step 1.5: Soft bundle recommendation (best effort, no hard binding)
+  const queryText = `${task.goal} ${task.type} ${context?.project || ''} ${(context?.facts || []).join(' ')} ${(constraints.hard || []).join(' ')} ${(constraints.soft || []).join(' ')}`;
+  let recommendedBundleRefs = [];
+  let suggestedSkillRefs = [];
+  try {
+    const bundleDir = path.resolve(__dirname, '../../fixtures/skill-bundles');
+    const loaded = await loadSkillBundlesFromDir(bundleDir);
+    const match = matchBundles({
+      query: queryText,
+      bundles: loaded.usableBundles,
+      context: {
+        task_type: task.type,
+        project: context.project,
+        threshold: 8,
+        topN: 3,
+      },
+    });
+    const top = Array.isArray(match?.hits) ? match.hits.slice(0, 2) : [];
+    recommendedBundleRefs = top.map((m) => m.bundle_id).filter(Boolean);
+    suggestedSkillRefs = [...new Set(top.flatMap((m) => m.suggested_skill_refs || []).filter(Boolean))];
+  } catch {
+    // ignore matcher errors to keep betterPrompt non-blocking
+  }
+
+  // merge soft suggested skill refs as extra candidates (still soft)
+  const mergedSkillsInput = {
+    ...skills,
+    candidates: [...new Set([...(skills?.candidates || []), ...suggestedSkillRefs])],
+  };
+
   // Step 2+3: Score & Select skills
-  const selectedSkills = selectSkills(skills, slots, constraints);
+  const selectedSkills = selectSkills(mergedSkillsInput, slots, constraints);
 
   // Step 4: Build prompt package
   const package_id = generatePackageId();
@@ -474,6 +511,8 @@ export function buildBetterPromptPackage(input) {
       done_definition: task.success_criteria,
     },
     selected_skills: selectedSkillIds.length > 0 ? selectedSkillIds : undefined,
+    recommended_bundle_refs: recommendedBundleRefs.length > 0 ? recommendedBundleRefs : undefined,
+    suggested_skill_refs: suggestedSkillRefs.length > 0 ? suggestedSkillRefs : undefined,
     prompt: {
       system: buildSystemPrompt(task, selectedSkills, constraints, context),
       developer: buildDeveloperPrompt(task, selectedSkills),
