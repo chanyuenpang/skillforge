@@ -85,34 +85,70 @@ Registry 是"可复用交付"的起点,不等同于"所有已运行对象"。
 
 ---
 
-## 4. 产品架构:两个独立拦截点 + 统一观测面
+## 4. 产品架构：Skill Registry 驱动的双层生成
 
-SkillForge 不是一条串联流水线。它是一个**无侵入的记录与增强层**,在两个独立调用点提供服务:
+SkillForge 不是一条串联流水线，也不是要求外部 skill 服从某种内部 schema 的任务系统。它的核心是：**收录与维护外部 skill 文件，并在运行时锻造更好的 workflow 与 prompt。**
 
-### 调用点 A:创建 plan
-主 agent 创建计划时,SkillForge 提供 **workflow skeleton**(流程骨架:阶段拆解 / 步骤模板)。
-- 输入:任务目标、上下文
-- 输出:结构化 plan 骨架
-- Run Center 记录:plan 输入输出 + skeleton 结构
+### 4.1 Skill Registry 是根资产层
+SkillForge 的输入材料是来自项目或外部目录的 skill 文件。它们本身可以是当前流行的 AI 文档格式，不要求必须符合 SkillForge 自定义结构。
 
-### 调用点 B:派发 subagent
-主 agent 派发子任务时,SkillForge 提供**拼接好的完整 skill + prompt**(可执行指令)。
-- 输入:完整的 skill 定义 + 任务 prompt
-- 输出:subagent 执行结果
-- Run Center 记录:run 输入输出 + 可关联的 planRef
+SkillForge 负责：
+- 收录 skill 文件
+- 扫描 skill 文件
+- 提取 tags / constraints / examples / tool hints / step candidates 等索引材料
+- 当 skill 更新时重新扫描并刷新派生产物
 
-### 两个调用点之间的关系
-- **相互独立**:可以在不创建 plan 的情况下直接 spawn subagent
-- **可选关联**:如果 spawn 属于某个 plan,通过 planRef 关联
-- **只记录,不阻断**:SkillForge 在每次调用时记录输入输出,但不做门控审批
+### 4.2 `betterWorkflow`：宏观规划层
+`betterWorkflow` 用于指导 plan 规划，但它不把 `plan` 当成输入对象。输入应是：
+- `goal`
+- `context`
+- `constraints`
+- `parameters`
 
-### 统一观测面:Run Center
-Run Center 是这两个拦截点的统一观测入口:
-- Plan 记录:骨架结构、输入输出
-- Run 记录:skill+prompt 输入、执行结果、planRef 关联
+它的职责是把问题从较大粒度拆到较小粒度，例如：
+- `project goal -> milestone`
+- `milestone -> atomic task`
 
-### 审批:特例,不是常态
-审批只在**新建技能 / 注册技能写入仓库**时触发,是低频的门控动作,不在日常高频链路中。
+这里的 `atomic task` 指：**可以交给单一 subagent 独立解决的任务**。
+
+`betterWorkflow` 产出的不是最终执行 prompt，而是总体 workflow / 结构化拆解结果。
+
+### 4.3 `betterPrompt`：微观展开层
+`betterPrompt` 接在 `atomic task` 之后工作。它的本质是：
+**把相关 skills 与当前任务 prompt 融合在一起，递归细化为可执行的最小步骤，再返回给 agent。**
+
+它的内部过程是：
+1. 接收一个 atomic task
+2. 根据该任务需要命中相关 skills
+3. 把 skill 材料（步骤、知识、约束、工具提示等）融合进任务 prompt
+4. 继续向下展开，直到接近 skill 定义的最小步骤
+5. 产出一个上下文更小、更稳定、更容易执行的实时 prompt
+
+因此，多个 skill 同时命中这件事主要发生在 `betterPrompt` 阶段，而不是 `betterWorkflow` 阶段。
+
+`betterPrompt` 的额外价值在于：它能把大而杂的 skill 材料压缩成更短、更稳、更低上下文负担的实时 prompt，从而让后续执行 agent 可以使用更简单、更便宜、甚至本地的小模型，同时提高按步骤执行的稳定性。
+
+### 4.4 Skill Bundle：加速层，不是硬绑定层
+平台可以预定义高频场景的 `skill bundle`，用于：
+- 快速缩小 skill 搜索范围
+- 快速准备候选材料
+- 加速实时 prompt 生成
+
+`skill bundle` 的定位是 **reference / 参考集合**，不是把 bundle 中的整包信息原样喂给 subagent。真正发给 subagent 的内容，仍由 `betterPrompt` 根据当前任务实时压缩、筛选和组装。
+
+### 4.5 统一观测面：Run Center
+Run Center 的意义不是提供摘要，而是保留**原始输入 / 原始输出**作为评估体系的数据源。
+
+至少需要记录：
+- `betterWorkflow` 的原始输入 / 原始输出
+- `betterPrompt` 的原始输入 / 原始输出
+- subagent 真正收到的 prompt
+- subagent 返回的原始结果
+
+摘要可以作为辅助视图，但不能替代原始 I/O，因为产品优化与质量评估都依赖原始材料。
+
+### 4.6 审批：特例，不是常态
+审批只在**新建技能 / 注册技能写入仓库**时触发，是低频门控动作，不在日常高频链路中。
 
 ---
 
@@ -201,5 +237,5 @@ v1 阶段成功不仅看"产品壳层成立 + 治理链可追溯",也要看"任�
 
 ---
 
-SkillForge v1 的关键不是"页面数量增加"，而是建立一个可信的记录与观测骨架：  
-**每一次 plan 创建、每一次 subagent 派发，都在 Run Center 留下可追溯的记录。在可观测的基础上，逐步沉淀可复用的技能和计划方法。**
+SkillForge v1 的关键不是"页面数量增加"，而是建立一个可信的 skill 资产层与运行时锻造层：  
+**把外部 skill 文件收录进来，持续扫描和刷新其中间产物，并在运行时通过 `betterWorkflow` 与 `betterPrompt` 为具体任务生成更好的 workflow 与 prompt；同时把原始 I/O 留在 Run Center，作为评估与优化的真实数据源。**

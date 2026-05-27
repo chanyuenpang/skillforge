@@ -22,6 +22,8 @@
 import { resolveSkills } from './skill-resolver.mjs';
 import { assemblePrompt } from './prompt-assembler.mjs';
 import { createSpawnSpec, createSpawnTrace } from './spawn-spec-contract.mjs';
+import { buildBetterPromptPackage } from './betterprompt-builder.mjs';
+import { evaluateBetterPromptPackage } from './betterprompt-qc.mjs';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -159,6 +161,44 @@ function generatePromptForTask(task, planDTO, opts = {}) {
   };
 }
 
+function buildBetterPromptInput(task, resolvedSkills) {
+  const goal = normalizeString(task?.title) || normalizeString(task?.description) || 'complete this task';
+  const type = normalizeString(task?.phase) || 'implementation';
+  const hard = ['Do not exfiltrate private data'];
+
+  return {
+    version: 'betterprompt-input-v1',
+    task: {
+      id: normalizeString(task?.id) || undefined,
+      goal,
+      type,
+      success_criteria: Array.isArray(task?.outputs) && task.outputs.length > 0 ? task.outputs : ['task completed'],
+    },
+    context: {
+      project: 'workflow-kit',
+      artifacts: Array.isArray(task?.outputs) ? task.outputs : [],
+      facts: [normalizeString(task?.description)].filter(Boolean),
+    },
+    skills: {
+      candidates: Array.isArray(resolvedSkills)
+        ? resolvedSkills.map((s) => s?.skillId).filter(Boolean)
+        : [],
+      bundle_refs: [],
+    },
+    constraints: {
+      hard,
+      soft: ['Prefer concise and testable steps'],
+      output_format: 'markdown',
+      risk_level: 'low',
+    },
+    runtime: {
+      language: 'zh-CN',
+      timebox_min: 20,
+      token_budget: 2000,
+    },
+  };
+}
+
 // ── SpawnSpec Generation ─────────────────────────────────────────────────────
 
 /**
@@ -172,7 +212,7 @@ function generatePromptForTask(task, planDTO, opts = {}) {
  * @param {object} traceInfo     — { traceId, ... }
  * @returns {object} frozen SpawnSpec
  */
-function generateSpawnSpecForTask(task, promptResult, traceInfo = {}) {
+function generateSpawnSpecForTask(task, promptText, traceInfo = {}) {
   const traceId = normalizeString(traceInfo.traceId) || `trace-task-${normalizeString(task?.id)}`;
 
   const spawnTrace = createSpawnTrace({
@@ -192,8 +232,8 @@ function generateSpawnSpecForTask(task, promptResult, traceInfo = {}) {
     trace: spawnTrace,
     payload: {
       taskIds: [normalizeString(task?.id)],
-      notes: normalizeString(promptResult?.promptText)
-        ? `prompt generated: ${promptResult.promptText.slice(0, 80)}...`
+      notes: normalizeString(promptText)
+        ? `prompt generated: ${String(promptText).slice(0, 80)}...`
         : 'no prompt text',
     },
   });
@@ -261,6 +301,8 @@ export function linkReadyTasks({
   const traceRecords = [];
   const promptResults = [];
   const spawnSpecs = [];
+  let betterPromptAttemptedCount = 0;
+  let betterPromptAcceptedCount = 0;
 
   for (const taskId of readyTaskIds) {
     const task = taskMap.get(taskId);
@@ -274,10 +316,22 @@ export function linkReadyTasks({
     // 1. Generate prompt
     const { promptResult, resolvedSkills } = generatePromptForTask(task, planDTO, promptOpts);
 
-    // 2. Generate spawn spec
-    const spawnSpec = generateSpawnSpecForTask(task, promptResult, { traceId: localTraceId });
+    // 2. betterPrompt attempt (with fallback)
+    const betterPromptInput = buildBetterPromptInput(task, resolvedSkills);
+    const betterPromptPackage = buildBetterPromptPackage(betterPromptInput);
+    const betterPromptQc = evaluateBetterPromptPackage(betterPromptPackage);
+    const betterPromptAccepted = betterPromptQc.pass === true;
+    const finalPromptText = betterPromptAccepted
+      ? betterPromptPackage?.prompt?.system || promptResult?.promptText || ''
+      : promptResult?.promptText || '';
 
-    // 3. Create trace record
+    betterPromptAttemptedCount += 1;
+    if (betterPromptAccepted) betterPromptAcceptedCount += 1;
+
+    // 3. Generate spawn spec
+    const spawnSpec = generateSpawnSpecForTask(task, finalPromptText, { traceId: localTraceId });
+
+    // 4. Create trace record
     const traceRecord = createIntegrationTrace({
       traceId: localTraceId,
       planTaskId: taskId,
@@ -298,6 +352,16 @@ export function linkReadyTasks({
       taskId,
       prompt: promptResult,
       resolvedSkills,
+      betterPrompt: {
+        package_id: betterPromptPackage?.package_id || null,
+        selected_skills: Array.isArray(betterPromptPackage?.selected_skills)
+          ? betterPromptPackage.selected_skills
+          : [],
+        qc_result: {
+          pass: betterPromptQc?.pass === true,
+        },
+        fallback_used: !betterPromptAccepted,
+      },
     });
     spawnSpecs.push({
       taskId,
@@ -310,7 +374,7 @@ export function linkReadyTasks({
     traceRecords: Object.freeze(traceRecords),
     promptResults: Object.freeze(promptResults),
     spawnSpecs: Object.freeze(spawnSpecs),
-    summary: `linked ${traceRecords.length} ready task(s): plan → prompt → spawn`,
+    summary: `linked ${traceRecords.length} ready task(s): plan → prompt → spawn (betterPrompt attempted=${betterPromptAttemptedCount}, accepted=${betterPromptAcceptedCount})`,
   };
 }
 

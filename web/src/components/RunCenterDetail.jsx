@@ -728,6 +728,38 @@ export default function RunCenterDetail() {
                 </>
               )}
 
+              {(detail?.planRef || detail?.planSummary) ? (
+                <section className="detail-section" style={{ marginTop: 10, marginBottom: 14 }}>
+                  <h3>🧩 关联 Plan</h3>
+                  <dl className="run-meta-grid">
+                    {detail?.planRef ? (
+                      <>
+                        <dt>Plan Ref</dt>
+                        <dd><code>{detail.planRef}</code></dd>
+                      </>
+                    ) : null}
+                    {detail?.planSummary?.title ? (
+                      <>
+                        <dt>标题</dt>
+                        <dd>{detail.planSummary.title}</dd>
+                      </>
+                    ) : null}
+                    {detail?.planSummary?.goal ? (
+                      <>
+                        <dt>目标</dt>
+                        <dd>{detail.planSummary.goal}</dd>
+                      </>
+                    ) : null}
+                    {detail?.planSummary?.fixtureId ? (
+                      <>
+                        <dt>Fixture</dt>
+                        <dd>{detail.planSummary.fixtureId}</dd>
+                      </>
+                    ) : null}
+                  </dl>
+                </section>
+              ) : null}
+
               {/* 次级元数据栏（runId 退到 footer） */}
               <BackChain fromPath={fromPath} onFallbackBack={handleFallbackBack} />
               <MetaBar

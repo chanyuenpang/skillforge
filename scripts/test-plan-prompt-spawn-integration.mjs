@@ -371,7 +371,44 @@ header('6. linkSingleTask 快捷接口');
 // Section 7: 边界情况
 // ════════════════════════════════════════════════════════════════════════════
 
-header('7. 边界情况');
+header('7. betterPrompt dogfooding');
+
+{
+  const planDTO = buildTestPlanDTO();
+  const rt = evaluatePlanRuntime({
+    planDTO,
+    completedTaskIds: ['task-1', 'task-2'],
+  });
+
+  const result = linkReadyTasks({ planDTO, runtimeOutput: rt });
+  const pr = result.promptResults[0];
+
+  assert(Boolean(pr.betterPrompt), 'betterPrompt: 结果对象存在');
+  const hasPkgId = typeof pr.betterPrompt.package_id === 'string' && pr.betterPrompt.package_id.length > 0;
+  const hasFallback = pr.betterPrompt.fallback_used === true;
+  assert(hasPkgId || hasFallback,
+    `betterPrompt: pkg_id 或有 fallback 理由 (pkg=${pr.betterPrompt.package_id}, fallback=${pr.betterPrompt.fallback_used})`);
+  assert(Array.isArray(pr.betterPrompt.selected_skills),
+    `betterPrompt: selected_skills 为数组 (len=${pr.betterPrompt.selected_skills.length})`);
+  assert(typeof pr.betterPrompt.qc_result?.pass === 'boolean',
+    `betterPrompt: qc_result.pass 为布尔值 (${pr.betterPrompt.qc_result?.pass})`);
+  assert(typeof pr.betterPrompt.fallback_used === 'boolean',
+    `betterPrompt: fallback_used 为布尔值 (${pr.betterPrompt.fallback_used})`);
+
+  assert(result.summary.includes('betterPrompt attempted='),
+    `summary 包含 attempted 信息: ${result.summary}`);
+  assert(result.summary.includes('accepted='),
+    `summary 包含 accepted 信息: ${result.summary}`);
+
+  const hasAcceptedOrFallback = pr.betterPrompt.qc_result.pass === true || pr.betterPrompt.fallback_used === true;
+  assert(hasAcceptedOrFallback, 'betterPrompt: 覆盖 accepted/fallback 至少一种路径');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Section 8: 边界情况
+// ════════════════════════════════════════════════════════════════════════════
+
+header('8. 边界情况');
 
 {
   const planDTO = buildTestPlanDTO();

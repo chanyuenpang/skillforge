@@ -37,6 +37,12 @@ import {
   save as saveExecLog,
   buildExecutionLogEntry,
 } from './src/skillforge/execution-log-store.mjs';
+import {
+  buildPlanLogEntry,
+  save as savePlanLog,
+  recent as listRecentPlans,
+  loadById as loadPlanLogById,
+} from './src/skillforge/plan-log-store.mjs';
 import { list as listTranscripts, save as saveTranscript } from './src/skillforge/transcript-store.mjs';
 import {
   initiateTaskRun,
@@ -290,6 +296,15 @@ function matchRoute(method, pathname) {
   // GET /api/run-center/runs/:runId
   const runDetailMatch = pathname.match(/^\/api\/run-center\/runs\/([^/]+)$/);
   if (method === 'GET' && runDetailMatch) return { route: 'runCenterDetail', runId: decodeURIComponent(runDetailMatch[1]) };
+
+  // POST /api/plan-log
+  if (method === 'POST' && pathname === '/api/plan-log') return 'planLogCreate';
+
+  // POST /api/plans — create a plan record
+  if (method === 'POST' && pathname === '/api/plans') return 'planCreate';
+
+  // GET /api/plan-center/plans — list recent plans
+  if (method === 'GET' && pathname === '/api/plan-center/plans') return 'planCenterList';
 
   // ── Task Run (M4 end-to-end loop) ──
   // POST /api/tasks/runs — initiate (idempotent)
@@ -1133,6 +1148,34 @@ function buildRunDetail(runId) {
     }
   } catch { /* non-critical */ }
 
+  const planRef = firstNonEmptyText(item?.planRef, item?.evidenceRefs?.planId);
+  if (planRef) {
+    detail.planRef = planRef;
+    try {
+      const planLogs = loadPlanLogById(planRef);
+      const latestPlan = Array.isArray(planLogs) && planLogs.length > 0
+        ? planLogs[planLogs.length - 1]
+        : null;
+      if (latestPlan) {
+        const planTitle = firstNonEmptyText(
+          latestPlan?.output?.title,
+          latestPlan?.output?.goal,
+          latestPlan?.input?.title,
+          latestPlan?.input?.goal,
+        );
+        const planGoal = firstNonEmptyText(
+          latestPlan?.output?.goal,
+          latestPlan?.input?.goal,
+        );
+        detail.planSummary = {
+          title: planTitle,
+          goal: planGoal,
+          fixtureId: firstNonEmptyText(latestPlan?.fixtureId),
+        };
+      }
+    } catch { /* non-critical */ }
+  }
+
   detail.inputSummary = buildInputSummary(detail);
   detail.outputSummary = buildOutputSummary(detail);
   const failureSummary = buildFailureSummary(detail);
@@ -1905,6 +1948,58 @@ const server = http.createServer(async (req, res) => {
         }), 200, requestId);
       }
 
+      if (matched === 'planLogCreate') {
+        const body = await parseBody(req, res);
+        if (timeoutTriggered || body === null) return;
+
+        const planId = typeof body.planId === 'string' ? body.planId.trim() : '';
+        const fixtureId = typeof body.fixtureId === 'string' ? body.fixtureId.trim() : '';
+        if (!planId) return sendError(res, 400, 'INVALID_INPUT', 'planId is required');
+        if (!fixtureId) return sendError(res, 400, 'INVALID_INPUT', 'fixtureId is required');
+
+        const entry = buildPlanLogEntry({
+          planId,
+          fixtureId,
+          input: body.input ?? null,
+          output: body.output ?? null,
+        });
+        const saved = savePlanLog(entry);
+
+        return json(res, apiSuccess({
+          ok: saved.ok,
+          planId: saved.planId,
+          path: saved.path,
+        }), 201, requestId);
+      }
+
+      // POST /api/plans — create a plan record
+      if (matched === 'planCreate') {
+        const body = await parseBody(req, res);
+        if (timeoutTriggered || body === null) return;
+
+        const planId = typeof body.planId === 'string' ? body.planId.trim() : '';
+        const fixtureId = typeof body.fixtureId === 'string' ? body.fixtureId.trim() : '';
+        if (!planId) return sendError(res, 400, 'INVALID_INPUT', 'planId is required');
+        if (!fixtureId) return sendError(res, 400, 'INVALID_INPUT', 'fixtureId is required');
+
+        const entry = buildPlanLogEntry({
+          planId,
+          fixtureId,
+          input: body.input ?? null,
+          output: body.output ?? null,
+        });
+        const saved = savePlanLog(entry);
+
+        return json(res, apiSuccess(saved), 201, requestId);
+      }
+
+      // GET /api/plan-center/plans — list recent plans
+      if (matched === 'planCenterList') {
+        const limit = normalizeLimit(parsed.searchParams.get('limit'), 20, 100);
+        const plans = listRecentPlans(limit);
+        return json(res, apiSuccess({ plans, total: plans.length }), 200, requestId);
+      }
+
       // ── Task Run handlers (M4 end-to-end loop) ──────────────────────
 
       // POST /api/tasks/runs — initiate (idempotent)
@@ -2004,15 +2099,19 @@ const server = http.createServer(async (req, res) => {
             if (lineage?.init) {
               const rawInput = body.input || null;
               const rawOutput = body.output || body.message || null;
+              const planId = lineage?.init?.parentPlanId ?? body.planId ?? null;
               const execEntry = buildExecutionLogEntry({
                 fixtureId: lineage.init.fixtureId,
                 status: 'completed',
                 source: 'task-run',
                 durationMs: result.durationMs,
-                evidenceRefs: { taskRunId: matched.taskRunId },
+                evidenceRefs: { taskRunId: matched.taskRunId, planId },
                 rawInput: typeof rawInput === 'string' ? rawInput : null,
                 rawOutput: typeof rawOutput === 'string' ? rawOutput : null,
               });
+              // Attach planRef if provided via body
+              const planRef = typeof body.planRef === 'string' && body.planRef.trim() ? body.planRef.trim() : null;
+              if (planRef) execEntry.planRef = planRef;
               saveExecLog(execEntry);
             }
           } catch (e) {
@@ -2040,15 +2139,19 @@ const server = http.createServer(async (req, res) => {
             if (lineage?.init) {
               const rawInput = body.input || null;
               const rawOutput = body.output || body.message || null;
+              const planId = lineage?.init?.parentPlanId ?? body.planId ?? null;
               const execEntry = buildExecutionLogEntry({
                 fixtureId: lineage.init.fixtureId,
                 status: 'failed',
                 source: 'task-run',
                 errorMessage: `${result.errorCode}: ${body.message ?? 'Task run failed'}`,
-                evidenceRefs: { taskRunId: matched.taskRunId },
+                evidenceRefs: { taskRunId: matched.taskRunId, planId },
                 rawInput: typeof rawInput === 'string' ? rawInput : null,
                 rawOutput: typeof rawOutput === 'string' ? rawOutput : null,
               });
+              // Attach planRef if provided via body
+              const planRef = typeof body.planRef === 'string' && body.planRef.trim() ? body.planRef.trim() : null;
+              if (planRef) execEntry.planRef = planRef;
               saveExecLog(execEntry);
             }
           } catch (e) {
