@@ -48,6 +48,10 @@ function validatePermissions(errors, permissions, fieldPath) {
       pushError(errors, `${fieldPath}.${key}`, "must be a boolean");
     }
   }
+
+  if (permissions.fileWrite === true && permissions.fileWriteScope !== undefined && !hasText(permissions.fileWriteScope)) {
+    pushError(errors, `${fieldPath}.fileWriteScope`, "must be a non-empty string when provided");
+  }
 }
 
 function validateWorkflowSource(data) {

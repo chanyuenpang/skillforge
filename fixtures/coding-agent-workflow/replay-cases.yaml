@@ -1,0 +1,23 @@
+fixtureId: coding-agent-workflow
+fixtureVersion: 0.1.0
+kind: replay-cases
+cases:
+  - id: ca-1
+    utterance: 请把这个功能实现出来并补上验证。
+    expected:
+      shouldMatch: true
+      focus:
+        - 代码实现
+        - 验证阶段
+  - id: ca-2
+    utterance: 帮我修复这个 bug 并整理相关文件。
+    expected:
+      shouldMatch: true
+      focus:
+        - 修复 bug
+        - 集成
+  - id: ca-3
+    utterance: 先帮我拆任务，别急着写代码。
+    expected:
+      shouldMatch: false
+      reason: 属于 task-planning 范围，不是 coding-agent-workflow 的职责。

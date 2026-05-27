@@ -1,0 +1,30 @@
+fixtureId: browser-agent-workflow
+fixtureVersion: 0.1.0
+kind: workflow-source
+source:
+  kind: skill
+  path: skills/browser-agent-workflow/SKILL.md
+  name: browser-agent-workflow
+  title: 浏览器代理工作流
+  description: 专注于端到端 UI 验证的浏览器专家，控制真实浏览器完成完整用户交互流程。
+  triggerPhrases:
+    - browser agent
+    - browser-agent-workflow
+    - 浏览器验证
+    - 端到端验证
+    - UI 验证
+    - 视觉回归
+  scope:
+    include:
+      - 页面导航与标签页管理
+      - DOM / 脚本探测优先
+      - 交互操作与结果校验
+      - 控制台与网络错误收集
+    exclude:
+      - 代码修改
+      - 单元测试
+      - 根因分析
+      - OpenClaw 自身 restart/start/stop
+    notes:
+      - 默认脚本优先，snapshot 仅兜底。
+      - 连续两次失败应返回真实阻塞。

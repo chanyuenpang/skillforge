@@ -101,6 +101,8 @@ export function validateExecutionLogEntry(record) {
  * @param {object} [options.steps] - e.g. { review: true, prep: true, registry: true }
  * @param {number} [options.durationMs]
  * @param {string} [options.errorMessage]
+ * @param {object} [options.input]
+ * @param {object} [options.output]
  * @returns {object} A valid execution log entry
  */
 export function buildExecutionLogEntry({
@@ -110,6 +112,14 @@ export function buildExecutionLogEntry({
   steps = null,
   durationMs = null,
   errorMessage = null,
+  caseId = null,
+  transcriptHandle = null,
+  evidenceRefs = null,
+  input = null,
+  output = null,
+  inputMessage = null,
+  outputMessage = null,
+  failureMessage = null,
 } = {}) {
   return {
     executionId: randomId(),
@@ -118,6 +128,16 @@ export function buildExecutionLogEntry({
     timestamp: new Date().toISOString(),
     status,
     source,
+    caseId,
+    transcriptHandle,
+    evidenceRefs,
+    input: input && typeof input === "object" ? input : null,
+    output: output && typeof output === "object" ? output : null,
+    inputMessage: typeof inputMessage === "string" && inputMessage.trim() ? inputMessage.trim() : null,
+    outputMessage: typeof outputMessage === "string" && outputMessage.trim() ? outputMessage.trim() : null,
+    failureMessage: typeof failureMessage === "string" && failureMessage.trim()
+      ? failureMessage.trim()
+      : (status === "failed" ? (typeof errorMessage === "string" && errorMessage.trim() ? errorMessage.trim() : null) : null),
     steps: steps
       ? {
           review: steps.review === true,

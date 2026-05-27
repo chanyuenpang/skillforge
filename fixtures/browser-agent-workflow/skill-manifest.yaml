@@ -1,0 +1,19 @@
+fixtureId: browser-agent-workflow
+fixtureVersion: 0.1.0
+kind: skill-manifest
+manifest:
+  name: browser-agent-workflow
+  title: 浏览器代理工作流
+  version: 1.0.0
+skills:
+  - id: browser-agent-workflow
+    name: browser-agent-workflow
+    version: 1.0.0
+    entry: skill/SKILL.md
+    description: 专注于端到端 UI 验证的浏览器专家，通过控制真实浏览器执行完整用户交互流程。
+    classification:
+      type: skill
+      persona: browser
+      domain: e2e-validation
+    notes:
+      - 仅保留浏览器验证职责，不包含代码修改职责。

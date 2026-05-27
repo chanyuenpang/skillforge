@@ -1,5 +1,6 @@
 const REVIEW_STATUS_VALUES = Object.freeze(new Set(["idle", "ready", "blocked", "approved", "rejected"]));
 const REVIEW_DECISION_VALUES = Object.freeze(new Set(["approve", "reject", "hold"]));
+const REVIEW_EVENT_TYPES = Object.freeze(new Set(["ReviewRequested", "ReviewApproved", "ReviewRejected", "ReviewResubmitted"]));
 const BLOCKING_REASON_VALUES = Object.freeze(new Set([
   "missing_generate_evidence",
   "missing_review_evidence",
@@ -92,16 +93,75 @@ export function validateReviewRecord(record) {
   return { valid: errors.length === 0, errors };
 }
 
+/**
+ * Create a review event for append-only storage.
+ * Does NOT validate state transitions — that's the store's job.
+ */
+export function createReviewEvent(type, fixtureId, options = {}) {
+  const now = new Date().toISOString();
+  const event = {
+    kind: "review-event",
+    type,
+    fixtureId,
+    recordedAt: now,
+    metadata: isPlainObject(options.metadata) ? { ...options.metadata } : {},
+  };
+
+  if (options.idempotencyKey) event.idempotencyKey = options.idempotencyKey;
+  if (options.decision) event.decision = options.decision;
+  if (options.status) event.status = options.status;
+  if (options.reason) event.reason = options.reason;
+  if (options.evidenceRefs) event.evidenceRefs = [...options.evidenceRefs];
+  if (options.sourceLinks) event.sourceLinks = [...options.sourceLinks];
+  if (options.round !== undefined) event.round = options.round;
+  if (options.previousRound !== undefined) event.previousRound = options.previousRound;
+
+  return event;
+}
+
+/**
+ * Validate a review event structure (not state machine).
+ */
+export function validateReviewEvent(event) {
+  const errors = [];
+
+  if (!isPlainObject(event)) {
+    pushError(errors, "$", "review-event must be an object");
+    return { valid: false, errors };
+  }
+
+  if (event.kind !== "review-event") pushError(errors, "kind", "must be review-event");
+  if (!REVIEW_EVENT_TYPES.has(event.type)) pushError(errors, "type", "must be a valid review event type");
+  if (!hasText(event.fixtureId)) pushError(errors, "fixtureId", "is required");
+  if (!isIsoString(event.recordedAt)) pushError(errors, "recordedAt", "must be an ISO string");
+  if (!isPlainObject(event.metadata)) pushError(errors, "metadata", "must be an object");
+
+  if (event.type === "ReviewApproved" || event.type === "ReviewRejected") {
+    if (!REVIEW_DECISION_VALUES.has(event.decision)) {
+      pushError(errors, "decision", "must be a valid review decision");
+    }
+    if (!REVIEW_STATUS_VALUES.has(event.status)) {
+      pushError(errors, "status", "must be a valid review status");
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 export {
   REVIEW_STATUS_VALUES,
   REVIEW_DECISION_VALUES,
+  REVIEW_EVENT_TYPES,
   BLOCKING_REASON_VALUES,
 };
 
 export default {
   REVIEW_STATUS_VALUES,
   REVIEW_DECISION_VALUES,
+  REVIEW_EVENT_TYPES,
   BLOCKING_REASON_VALUES,
   createReviewRecord,
   validateReviewRecord,
+  createReviewEvent,
+  validateReviewEvent,
 };

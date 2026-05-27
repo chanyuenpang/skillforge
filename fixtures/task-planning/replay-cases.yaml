@@ -1,0 +1,24 @@
+fixtureId: task-planning
+fixtureVersion: 0.1.0
+kind: replay-cases
+cases:
+  - id: tp-1
+    utterance: 请帮我把这个大任务拆成可执行计划。
+    expected:
+      shouldMatch: true
+      focus:
+        - 拆解任务
+        - 定义依赖
+        - 输出计划结构
+  - id: tp-2
+    utterance: 先不要实现代码，先规划怎么分工。
+    expected:
+      shouldMatch: true
+      focus:
+        - 规划优先
+        - 不混合实现职责
+  - id: tp-3
+    utterance: 直接改代码把功能做掉。
+    expected:
+      shouldMatch: false
+      reason: 属于 coding-agent-workflow 范围，不是 task-planning 的主职责。

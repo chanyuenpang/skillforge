@@ -28,6 +28,7 @@ const PRIVACY_PATTERNS = Object.freeze([
 ]);
 const SIDE_EFFECT_RE = /(?:network|web|联网|访问网络|外发|发送|message|external|write|写入|delete|删除|覆盖|exec|shell|命令|privatePathRead|私有路径)/iu;
 const DENY_RE = /(?:false|deny|denied|不|拒绝|禁止|无|保守|approval|required|需.*批准)/iu;
+const FILE_WRITE_SCOPE_RE = /(?:^|\b)(?:workspace|fixture|diary|safe|scoped|限定|仅|只允许|append|追加)(?:\b|$)/iu;
 const TRIGGER_RE = /(?:当用户|用户.*(?:要求|需要|说|请求)|when to use|use when|trigger|触发|整理会议纪要|生成会议总结|提炼会议结论|提取会议待办)/iu;
 
 function ruleById(id) {
@@ -132,6 +133,16 @@ function hasConservativeBoundary(normalized) {
   );
 }
 
+function hasControlledFileWrite(normalized) {
+  const merged = normalized.permissions?.merged ?? {};
+  if (merged.fileWrite !== true) return false;
+  const denied = new Set(normalized.permissions?.denied ?? []);
+  if (denied.has("network") || denied.has("externalSend") || denied.has("destructiveOperations") || denied.has("privatePathRead")) {
+    return (normalized.toolBoundary?.fileWriteScopeSignals ?? []).some((signal) => FILE_WRITE_SCOPE_RE.test(String(signal)));
+  }
+  return false;
+}
+
 function validateNormalized(normalized, loaded) {
   const checks = [];
 
@@ -183,13 +194,16 @@ function validateNormalized(normalized, loaded) {
       : check("SF-P1-TRIGGER-DESCRIPTION-ACTIONABLE", "fail", "Frontmatter description must include when the skill should be used.", [evidence("skill/SKILL.md", fm.description ?? "missing description")]),
   );
 
+  const controlledFileWrite = hasControlledFileWrite(normalized);
   const allowedBoundary = [
     ...(normalized.toolBoundary?.allowedActions ?? []),
-    ...Object.entries(normalized.permissions?.merged ?? {}).filter(([, value]) => value === true).map(([name]) => name),
+    ...Object.entries(normalized.permissions?.merged ?? {})
+      .filter(([name, value]) => value === true && !(name === "fileWrite" && controlledFileWrite))
+      .map(([name]) => name),
   ].filter(sideEffectAllowed);
   checks.push(
     allowedBoundary.length === 0
-      ? check("SF-P0-BOUNDARY-DEFAULT-ALLOW-EXTERNAL-OR-DESTRUCTIVE", "pass", "No default-allowed external or destructive side effects found.", [evidence("skill-spec.yaml", "side-effect permissions are not default-allowed")])
+      ? check("SF-P0-BOUNDARY-DEFAULT-ALLOW-EXTERNAL-OR-DESTRUCTIVE", "pass", controlledFileWrite ? "No default-allowed external/destructive side effects found; fileWrite is accepted as controlled." : "No default-allowed external or destructive side effects found.", [evidence("skill-spec.yaml", controlledFileWrite ? "fileWrite=true with explicit scope + deny network/externalSend/destructiveOperations/privatePathRead" : "side-effect permissions are not default-allowed")])
       : check("SF-P0-BOUNDARY-DEFAULT-ALLOW-EXTERNAL-OR-DESTRUCTIVE", "fail", "Boundary default-allows side-effecting capability.", allowedBoundary.map((item) => evidence("skill-spec.yaml", item))),
   );
 

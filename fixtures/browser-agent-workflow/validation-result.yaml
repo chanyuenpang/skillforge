@@ -1,0 +1,45 @@
+fixtureId: browser-agent-workflow
+fixtureVersion: 0.1.0
+kind: validation-result
+validation:
+  mode: static
+  status: pending
+  executed: false
+  modelReplayExecuted: false
+  summary: 尚未执行真实浏览器验证或模型回放；本结果只用于静态结构验证占位。
+  checks:
+    structure:
+      status: pending
+      note: 待校验 fixture 文件齐全与字段存在。
+    trigger:
+      status: pending
+      note: 待校验触发词是否覆盖浏览器验证场景。
+    boundary:
+      status: pending
+      note: 待校验是否仅保留浏览器验证职责。
+    dependency:
+      status: pending
+      note: 待校验是否未声明外部依赖。
+    risk:
+      status: pending
+      note: 待校验是否列出隔离、失败重试与脚本优先风险。
+    privacy:
+      status: pending
+      note: 待校验是否不含敏感数据或私有路径内容。
+    compatibility:
+      status: pending
+      note: 待校验 YAML 能否被静态 MVP 读取。
+permissions:
+  network: false
+  externalSend: false
+  fileWrite: false
+  destructiveOperations: false
+  privatePathRead: false
+checklist:
+  structure: validation-result 声明静态验证状态。
+  trigger: 包含 trigger 检查项。
+  boundary: 包含 boundary 检查项。
+  dependency: 包含 dependency 检查项。
+  risk: 包含 risk 检查项。
+  privacy: 包含 privacy 检查项。
+  compatibility: 包含 compatibility 检查项。

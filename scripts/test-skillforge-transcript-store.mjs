@@ -144,6 +144,27 @@ check('list returns at least 2 unique entries', () => allEntries.length >= 2);
 const totalLines = count();
 check('count >= 2', () => totalLines >= 2, `count=${totalLines}`);
 
+// ── 4. anchor-only transcript should not expose refs/content ───────────
+section('4. Anchor-only transcript regression guard');
+
+const anchorOnlyRecord = buildTranscriptRecord({
+  caseId: 'test-case-anchor-only',
+  fixtureId: 'test-fixture-anchor-only',
+  provider: 'openai',
+  model: 'gpt-4o-mini',
+  input: 'anchor exists but no materialized transcript content',
+  outputContent: '',
+  status: 'completed',
+});
+
+const anchorOnlyRefs = Array.isArray(anchorOnlyRecord.output?.refs) ? anchorOnlyRecord.output.refs : [];
+const anchorOnlyContent = anchorOnlyRecord.output?.content;
+const anchorOnlyCount = (anchorOnlyContent == null || anchorOnlyContent === '') ? 1 : 0;
+
+check('anchor-only refs defaults to []', () => Array.isArray(anchorOnlyRefs) && anchorOnlyRefs.length === 0);
+check('anchor-only count is 0 when no output.content is materialized', () => (anchorOnlyContent?.length ?? 0) === 0);
+check('anchorOnlyCount > 0 for anchor-only transcript', () => anchorOnlyCount > 0, `anchorOnlyCount=${anchorOnlyCount}`);
+
 // ── Summary ────────────────────────────────────────────────────────────
 section('Summary');
 const passed = errors.length === 0;

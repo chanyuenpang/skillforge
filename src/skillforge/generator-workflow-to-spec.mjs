@@ -40,8 +40,90 @@ function buildTriggerPhrases(source, skillName, title) {
   return [...new Set(candidates)];
 }
 
-export function compileWorkflowToSpec(workflowSource) {
+function sanitizeTaskId(value, fallbackPrefix, index) {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  return `${fallbackPrefix}-${index + 1}`;
+}
+
+function buildPlanSkeleton(source, skillName) {
+  const planning = asObject(source?.planning);
+  const rawTasks = asArray(planning.tasks);
+
+  const tasks = rawTasks
+    .map((task, index) => {
+      const taskObj = asObject(task);
+      const id = sanitizeTaskId(taskObj.id, 'task', index);
+      const title = typeof taskObj.title === 'string' && taskObj.title.trim() ? taskObj.title.trim() : id;
+      const dependsOn = asArray(taskObj.dependsOn)
+        .map((dep) => (typeof dep === 'string' ? dep.trim() : ''))
+        .filter(Boolean);
+
+      return {
+        id,
+        title,
+        description: typeof taskObj.description === 'string' && taskObj.description.trim() ? taskObj.description.trim() : undefined,
+        phase: typeof taskObj.phase === 'string' && taskObj.phase.trim() ? taskObj.phase.trim() : 'execute',
+        dependsOn,
+        outputs: asArray(taskObj.outputs),
+        owner: typeof taskObj.owner === 'string' && taskObj.owner.trim() ? taskObj.owner.trim() : 'agent',
+      };
+    })
+    .filter((task) => task.id);
+
+  if (tasks.length === 0) {
+    const fallbackTaskId = 'deliver-skill';
+    tasks.push({
+      id: fallbackTaskId,
+      title: `交付 ${skillName || 'skill'}`,
+      description: '生成并交付可执行技能产物',
+      phase: 'execute',
+      dependsOn: [],
+      outputs: ['SKILL.md'],
+      owner: 'agent',
+    });
+  }
+
+  const explicitPhases = asArray(planning.phases)
+    .map((phase) => {
+      const phaseObj = asObject(phase);
+      const id = typeof phaseObj.id === 'string' && phaseObj.id.trim() ? phaseObj.id.trim() : undefined;
+      if (!id) return null;
+      return {
+        id,
+        title: typeof phaseObj.title === 'string' && phaseObj.title.trim() ? phaseObj.title.trim() : id,
+        description: typeof phaseObj.description === 'string' && phaseObj.description.trim() ? phaseObj.description.trim() : undefined,
+      };
+    })
+    .filter(Boolean);
+
+  const phaseIdsFromTasks = [...new Set(tasks.map((task) => task.phase).filter(Boolean))];
+  const phases = explicitPhases.length
+    ? explicitPhases
+    : phaseIdsFromTasks.map((phaseId) => ({ id: phaseId, title: phaseId }));
+
+  const dependencies = tasks.map((task) => ({
+    taskId: task.id,
+    dependsOn: cloneArray(task.dependsOn),
+  }));
+
+  const phaseOrder = phases.map((phase) => phase.id);
+
+  return {
+    kind: 'plan-skeleton',
+    version: '1',
+    skill: skillName,
+    phases,
+    phaseOrder,
+    tasks,
+    dependencies,
+  };
+}
+
+export function compileWorkflowToSpec(workflowSource, generationContext = {}) {
   const source = asObject(workflowSource);
+  const finalized = asObject(generationContext.finalized);
   const fixtureId = typeof source.fixtureId === 'string' && source.fixtureId.trim() ? source.fixtureId.trim() : undefined;
   const version = typeof source.fixtureVersion === 'string' && source.fixtureVersion.trim() ? source.fixtureVersion.trim() : DEFAULT_VERSION;
   const name = typeof source.name === 'string' && source.name.trim() ? source.name.trim() : fixtureId || 'unknown-skill';
@@ -53,6 +135,7 @@ export function compileWorkflowToSpec(workflowSource) {
   const permissions = asObject(source.permissions);
   const dependencies = asObject(source.dependencies);
   const checklist = asObject(source.checklist);
+  const planSkeleton = buildPlanSkeleton(source, skillName);
 
   return {
     fixtureId,
@@ -103,6 +186,13 @@ export function compileWorkflowToSpec(workflowSource) {
       crossModel: 'pending',
       ci: 'pending',
     },
+    generation: {
+      finalized: {
+        id: typeof finalized.id === 'string' && finalized.id.trim() ? finalized.id.trim() : undefined,
+        revision: typeof finalized.revision === 'string' && finalized.revision.trim() ? finalized.revision.trim() : undefined,
+        finalizedAt: typeof finalized.finalizedAt === 'string' && finalized.finalizedAt.trim() ? finalized.finalizedAt.trim() : undefined,
+      },
+    },
     checklist: {
       structure: checklist.structure,
       trigger: checklist.trigger,
@@ -112,5 +202,6 @@ export function compileWorkflowToSpec(workflowSource) {
       privacy: checklist.privacy,
       compatibility: checklist.compatibility,
     },
+    planSkeleton,
   };
 }

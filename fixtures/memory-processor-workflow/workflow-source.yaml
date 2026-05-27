@@ -1,0 +1,6 @@
+sourceName: memory-processor-workflow
+sourcePath: <redacted>
+fixtureId: memory-processor-workflow
+notes:
+  - 单一来源 MEMORY.md 的逐条下沉与 Top30 回写。
+  - 受控 fileRead/fileWrite，禁止跨来源扫描与整份摘要替代。

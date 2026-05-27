@@ -1,0 +1,43 @@
+fixtureId: daily-diary
+fixtureVersion: 0.1.0
+kind: workflow-source
+name: 日常日记记录工作流
+summary: 将用户的日常想法、补充内容记录到日记 JSON 文件中。
+source:
+  type: local-skill
+  language: zh-CN
+  inputContract:
+    acceptedInputs:
+      - 用户原始想法
+      - 触发词“记一下”
+      - 触发词“一个想法”
+      - 触发词“帮我记”
+      - 触发词“补充一下”
+    rejectedInputs:
+      - 真实密钥或令牌
+      - 真实联系人信息
+      - 私有系统链接
+      - 本地私有路径
+  outputContract:
+    format: json
+    sections:
+      - original_content
+      - content
+      - datetime
+      - tags
+      - lobster_comment
+      - supplements
+permissions:
+  network: false
+  externalSend: false
+  fileWrite: true
+  destructiveOperations: false
+  privatePathRead: false
+checklist:
+  structure: 工作流源声明 fixtureId、版本、输入输出契约。
+  trigger: 主题明确为日记记录与补充。
+  boundary: 明确拒绝敏感输入与私有材料。
+  dependency: 不依赖外部服务或私有数据源。
+  replay: 可由 replay-cases.yaml 提供静态回放设计。
+  privacy: 仅使用用户直接提供的内容。
+  compatibility: 使用 YAML 可被静态校验器读取。

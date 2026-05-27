@@ -73,12 +73,70 @@ function buildManifestOutputs(spec) {
   };
 }
 
-export function compileSpecToManifest(skillSpec) {
+function buildManifestPlanSkeleton(spec) {
+  const skeleton = asObject(spec?.planSkeleton);
+  const tasks = asArray(skeleton.tasks)
+    .map((task) => {
+      const taskObj = asObject(task);
+      const id = normalizeString(taskObj.id);
+      if (!id) return null;
+      return {
+        id,
+        title: normalizeString(taskObj.title) || id,
+        description: normalizeString(taskObj.description),
+        phase: normalizeString(taskObj.phase) || 'execute',
+        dependsOn: cloneArray(taskObj.dependsOn),
+        outputs: cloneArray(taskObj.outputs),
+        owner: normalizeString(taskObj.owner) || 'agent',
+      };
+    })
+    .filter(Boolean);
+
+  const phases = asArray(skeleton.phases)
+    .map((phase) => {
+      const phaseObj = asObject(phase);
+      const id = normalizeString(phaseObj.id);
+      if (!id) return null;
+      return {
+        id,
+        title: normalizeString(phaseObj.title) || id,
+        description: normalizeString(phaseObj.description),
+      };
+    })
+    .filter(Boolean);
+
+  const dependencies = asArray(skeleton.dependencies)
+    .map((dep) => {
+      const depObj = asObject(dep);
+      const taskId = normalizeString(depObj.taskId);
+      if (!taskId) return null;
+      return {
+        taskId,
+        dependsOn: cloneArray(depObj.dependsOn),
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    kind: 'plan-skeleton',
+    version: normalizeString(skeleton.version) || '1',
+    phases,
+    phaseOrder: cloneArray(skeleton.phaseOrder),
+    tasks,
+    dependencies,
+  };
+}
+
+export function compileSpecToManifest(skillSpec, generationContext = {}) {
   const spec = asObject(skillSpec);
   const skill = asObject(spec.skill);
   const compatibility = asObject(spec.compatibility);
   const privacy = asObject(spec.privacy);
   const dependencies = asObject(spec.dependencies);
+  const lineageFromContext = asObject(generationContext.lineage);
+  const generationFromSpec = asObject(spec.generation);
+  const finalizedFromSpec = asObject(generationFromSpec.finalized);
+  const sourceRefs = asArray(generationContext.sourceRefs);
 
   return {
     fixtureId: normalizeString(spec.fixtureId),
@@ -121,5 +179,16 @@ export function compileSpecToManifest(skillSpec) {
       privacy: normalizeString(spec.checklist?.privacy),
       compatibility: normalizeString(spec.checklist?.compatibility),
     },
+    generationRunId:
+      normalizeString(generationContext.generationRunId) ||
+      normalizeString(generationContext.runId),
+    lineage: {
+      pipeline: normalizeString(lineageFromContext.pipeline) || 'generator-v1',
+      finalizedId: normalizeString(finalizedFromSpec.id),
+      finalizedRevision: normalizeString(finalizedFromSpec.revision),
+      finalizedAt: normalizeString(finalizedFromSpec.finalizedAt),
+    },
+    sourceRefs,
+    planSkeleton: buildManifestPlanSkeleton(spec),
   };
 }

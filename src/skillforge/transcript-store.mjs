@@ -8,10 +8,10 @@
  *   - ~/.skillforge/transcript-store.jsonl
  *   - Append-only JSON Lines
  *   - loadById returns the latest entry for a given caseId
- *   - list returns one entry per caseId (latest wins)
+ *   - list returns all persisted entries (append-only timeline)
  */
 
-import { existsSync, mkdirSync, appendFileSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 
 const STORE_DIR = `${homedir()}/.skillforge`;
@@ -98,6 +98,7 @@ export function validateTranscriptRecord(record) {
  * @param {object} options
  * @param {string} options.caseId
  * @param {string} [options.fixtureId]
+ * @param {string} [options.executionId] - run/execution anchor id
  * @param {string} options.provider - e.g. "openai"
  * @param {string} options.model - e.g. "gpt-4o-mini"
  * @param {string|object} [options.input] - The input/prompt sent to the provider
@@ -114,6 +115,7 @@ export function validateTranscriptRecord(record) {
 export function buildTranscriptRecord({
   caseId,
   fixtureId = null,
+  executionId = null,
   provider = "openai",
   model = "unknown",
   input = null,
@@ -125,6 +127,7 @@ export function buildTranscriptRecord({
   providerRunId = null,
   status = "completed",
   rawResponse = null,
+  sourceRefs = null,
 } = {}) {
   const transcriptId =
     providerRunId && typeof providerRunId === "string" && providerRunId.trim().length > 0
@@ -138,6 +141,7 @@ export function buildTranscriptRecord({
     model,
     caseId,
     fixtureId,
+    executionId,
     timestamp: new Date().toISOString(),
     executionTimeMs,
     status,
@@ -155,6 +159,7 @@ export function buildTranscriptRecord({
         }
       : null,
     providerRunId,
+    sourceRefs,
     rawResponse: rawResponse
       ? {
           handle: rawResponse.handle ?? null,
@@ -212,20 +217,12 @@ export function loadById(id) {
 }
 
 /**
- * List all unique transcript records in the store.
- *
- * When multiple entries share the same caseId,
- * only the latest one (last written) is returned.
+ * List all transcript records in append order.
  *
  * @returns {object[]} Array of transcript record objects.
  */
 export function list() {
-  const entries = readAllLines();
-  const seen = new Map();
-  for (const entry of entries) {
-    seen.set(entry.caseId, entry);
-  }
-  return [...seen.values()];
+  return readAllLines();
 }
 
 /**

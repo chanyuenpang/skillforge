@@ -178,6 +178,13 @@ function summarizeToolBoundary(loadedFixture) {
   const body = loadedFixture.skill?.body ?? "";
   const permissions = summarizePermissions(loadedFixture);
 
+  const writeScopeSignals = [
+    loadedFixture.workflowSource?.permissions?.fileWriteScope,
+    loadedFixture.skillSpec?.boundaries?.fileWriteScope,
+    loadedFixture.skill?.frontmatter?.metadata?.permissions?.fileWriteScope,
+    ...asArray(loadedFixture.skillManifest?.skills).map((skill) => skill?.permissions?.fileWriteScope),
+  ].filter((value) => typeof value === "string" && value.trim() !== "");
+
   return {
     allowedActions: asArray(specBoundaries.allowed),
     deniedActions: asArray(specBoundaries.denied),
@@ -186,6 +193,7 @@ function summarizeToolBoundary(loadedFixture) {
       allowed: permissions.allowed,
       conservativeDefault: permissions.conservativeDefault,
     },
+    fileWriteScopeSignals: writeScopeSignals,
     bodyMentionsConservativeBoundary: /默认保守|不联网|不外发|不写文件|破坏性操作/u.test(body),
   };
 }

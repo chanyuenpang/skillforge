@@ -180,6 +180,24 @@ function normalizeFixtureIdentity({ fixtureDir, loadedFixture, normalizedFixture
   };
 }
 
+function normalizeSkeletonRef(source = null) {
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    return null;
+  }
+
+  const skeletonId = source?.skeletonId ?? null;
+  const skeletonVersion = source?.skeletonVersion ?? null;
+
+  if (skeletonId == null && skeletonVersion == null) {
+    return null;
+  }
+
+  return {
+    skeletonId,
+    skeletonVersion,
+  };
+}
+
 export function buildRuntimeRunnerInput({
   fixtureDir = null,
   loadedFixture = null,
@@ -189,6 +207,14 @@ export function buildRuntimeRunnerInput({
   boundary = {},
   options = {},
 } = {}) {
+  const skeletonRef =
+    normalizeSkeletonRef(options?.skeletonRef) ??
+    normalizeSkeletonRef(preflightReport?.skeletonRef) ??
+    normalizeSkeletonRef(caseRecord?.skeletonRef) ??
+    normalizeSkeletonRef(normalizedFixture?.skeletonRef) ??
+    normalizeSkeletonRef(loadedFixture?.skillManifest?.skeletonRef) ??
+    normalizeSkeletonRef(loadedFixture?.manifest?.skeletonRef);
+
   return {
     contract: {
       kind: "runtime-runner-input",
@@ -202,6 +228,7 @@ export function buildRuntimeRunnerInput({
     caseRecord: normalizeCaseRecord(caseRecord),
     boundary: normalizeBoundary(boundary),
     options: cloneObject(options),
+    skeletonRef,
     providerAdapterSeam: {
       ...DEFAULT_PROVIDER_ADAPTER_SEAM,
       ...(options?.providerAdapterSeam && typeof options.providerAdapterSeam === "object"
@@ -333,6 +360,27 @@ export function buildRuntimeRunnerResult({
 
   assertRunnerFailureTaxonomy({ status: normalizedStatus, failureReason, runnerMetadata: normalizedRunnerMetadata });
 
+  const normalizedApprovalRef =
+    observed?.approvalRef ??
+    normalizedRunnerMetadata?.approvalRef ??
+    null;
+
+  const normalizedConsumedPlanRef =
+    observed?.consumedPlanRef ??
+    normalizedRunnerMetadata?.consumedPlanRef ??
+    null;
+
+  const normalizedConsumedPromptRef =
+    observed?.consumedPromptRef ??
+    normalizedRunnerMetadata?.consumedPromptRef ??
+    null;
+
+  const normalizedEvidenceRefs = Array.isArray(observed?.evidenceRefs)
+    ? [...observed.evidenceRefs]
+    : Array.isArray(normalizedRunnerMetadata?.evidenceRefs)
+      ? [...normalizedRunnerMetadata.evidenceRefs]
+      : [];
+
   return {
     contract: {
       kind: "runtime-runner-output",
@@ -344,6 +392,10 @@ export function buildRuntimeRunnerResult({
     transcriptRef: normalizedTranscriptRef,
     failureReason,
     runnerMetadata: normalizedRunnerMetadata,
+    approvalRef: normalizedApprovalRef,
+    consumedPlanRef: normalizedConsumedPlanRef,
+    consumedPromptRef: normalizedConsumedPromptRef,
+    evidenceRefs: normalizedEvidenceRefs,
   };
 }
 

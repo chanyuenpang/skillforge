@@ -1374,6 +1374,32 @@ export function buildRuntimeProviderAdapterResult({
     }
   }
 
+  const normalizedApprovalRef =
+    finalRawResponse?.approvalRef ??
+    normalizedMetadata?.approvalRef ??
+    normalizedExecution?.approvalRef ??
+    null;
+
+  const normalizedConsumedPlanRef =
+    finalRawResponse?.consumedPlanRef ??
+    normalizedMetadata?.consumedPlanRef ??
+    normalizedExecution?.consumedPlanRef ??
+    null;
+
+  const normalizedConsumedPromptRef =
+    finalRawResponse?.consumedPromptRef ??
+    normalizedMetadata?.consumedPromptRef ??
+    normalizedExecution?.consumedPromptRef ??
+    null;
+
+  const normalizedEvidenceRefs = Array.isArray(finalRawResponse?.evidenceRefs)
+    ? [...finalRawResponse.evidenceRefs]
+    : Array.isArray(normalizedEvidence?.evidenceRefs)
+      ? [...normalizedEvidence.evidenceRefs]
+      : Array.isArray(normalizedMetadata?.evidenceRefs)
+        ? [...normalizedMetadata.evidenceRefs]
+        : [];
+
   return {
     contract: {
       kind: "runtime-provider-adapter-output",
@@ -1395,6 +1421,10 @@ export function buildRuntimeProviderAdapterResult({
     rawResponse: finalRawResponse,
     transcriptRef: normalizedTranscriptRef,
     providerMetadata: normalizedMetadata,
+    approvalRef: normalizedApprovalRef,
+    consumedPlanRef: normalizedConsumedPlanRef,
+    consumedPromptRef: normalizedConsumedPromptRef,
+    evidenceRefs: normalizedEvidenceRefs,
   };
 }
 

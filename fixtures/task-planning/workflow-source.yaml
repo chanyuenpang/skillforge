@@ -1,0 +1,30 @@
+fixtureId: task-planning
+fixtureVersion: 0.1.0
+kind: workflow-source
+source:
+  kind: skill
+  path: <SKILL_SOURCE_PATH>
+  name: task-planning
+  title: 任务规划技能
+  description: 指导 Leader Agent 进行复杂任务的分解、调度与执行规划。
+  triggerPhrases:
+    - task planning
+    - 任务规划
+    - 规划一下
+    - 拆分任务
+    - 调度
+    - blockedBy
+  scope:
+    include:
+      - 复杂任务拆解
+      - 共享基础件识别
+      - 计划文档结构化输出
+      - blockedBy 依赖编排
+    exclude:
+      - 代码实现
+      - 单元测试编写
+      - 代码审查结论
+      - 外部工具重启操作
+    notes:
+      - 先侦察再行动，外部依赖必须现场验证。
+      - 任务定义应保持原子性，避免实现/验证/审查混合。

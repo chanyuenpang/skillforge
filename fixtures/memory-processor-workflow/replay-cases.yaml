@@ -1,0 +1,33 @@
+cases:
+  - id: source-only-pass
+    title: 只提供单一来源 MEMORY.md
+    input:
+      source: project-x
+      memoryFile: /private/project-x/MEMORY.md
+    expected:
+      success: true
+      notes:
+        - 逐条处理表格
+        - 不扫描其他来源
+  - id: reject-summary-shortcut
+    title: 拒绝整份摘要替代逐条处理
+    input:
+      source: project-x
+      memoryContent: |
+        请直接总结下沉
+        | count | memory |
+        | 1 | A |
+    expected:
+      success: false
+      notes:
+        - 不能用摘要替代逐条处理
+  - id: top30-rewrite
+    title: Top30 收敛回写
+    input:
+      source: project-x
+      memoryFile: /private/project-x/MEMORY.md
+    expected:
+      success: true
+      notes:
+        - count=1 全量下沉
+        - 仅保留 Top30

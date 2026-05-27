@@ -180,12 +180,41 @@ function main() {
 
   section('7) ExecutionLog');
   try {
-    const start = performance.now();
     const entry = buildExecutionLogEntry({
       fixtureId: input.fixtureId,
       status: 'completed',
       source: 'skillforge-operate',
       steps: { review: true, prep: true, registry: true },
+      input: {
+        operation: 'skillforge-operate',
+        fixtureId: input.fixtureId,
+        version: input.version,
+        evidence: input.evidence,
+        sourceLink: input.sourceLink,
+      },
+      output: {
+        review: {
+          reviewId: reviewRecord.reviewId ?? null,
+          status: reviewRecord.status ?? null,
+          decision: reviewRecord.decision ?? null,
+          fixtureId: reviewRecord.fixtureId ?? null,
+        },
+        prep: {
+          prepId: publishPrep.prepId ?? null,
+          fixtureId: publishPrep.fixtureId ?? null,
+          version: publishPrep.version ?? null,
+          readiness: publishPrep.readiness ?? publishPrep.checks ?? null,
+        },
+        registry: {
+          entryId: registryEntry.entryId ?? null,
+          fixtureId: registryEntry.fixtureId ?? null,
+          version: registryEntry.version ?? null,
+          status: registryEntry.status ?? null,
+          tags: registryEntry.tags ?? null,
+        },
+      },
+      inputMessage: `执行 SkillForge operate：fixture=${input.fixtureId}，version=${input.version}，evidence=${input.evidence}`,
+      outputMessage: `运行成功：已完成 Review → PublishPrep → Registry 持久化，registryEntry=${registryEntry.entryId ?? 'unknown'}`,
     });
     const el = saveExecutionLog(entry);
     showObject('executionLogResult', el);

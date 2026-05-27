@@ -1,0 +1,55 @@
+# ADR: SkillForge L1-B 真实产品切片执行骨架与 verify 边界
+
+## Status
+
+accepted
+
+## Context
+
+L1-B 已完成负责人级真实执行骨架收口：第一波真实产品切片、页面/模块落点、coding/verify 原子任务、依赖顺序、verify 独立性与阶段禁区已经固定。若不把这些约束沉淀成 ADR，后续很容易把“真实执行骨架”再次退回成可变计划，导致实现派发、验证边界和阶段推进重新混 scope、混职责、混验收。
+
+## Decision
+
+决定将 L1-B 固化为“真实产品切片执行骨架”，并按以下规则推进：
+
+1. 先锁定第一波真实产品切片与代码落点，再派发实现型任务；本轮聚焦工作台编辑、审批决策、Run 回看与 Skeleton 最小追溯展示。
+2. 实现任务与验证任务必须拆开，verify 作为独立职责存在，不揉进实现任务里。
+3. 依赖关系、并行窗口与阶段禁区要提前写清，避免后续任务在 scope 上交叉、在职责上混淆。
+4. 后续真正的 coding / verify 派发必须以这份执行骨架为起点，而不是重新从零定义任务边界。
+5. coding 原子任务按工作台编辑、提交审批、审批门禁、Run 回看与 Skeleton 最小追溯的最小能力推进；verify 原子任务按主链 E2E、门禁负例、版本固化、防漂移与证据回看推进。
+6. 顺序固定为 C-B1→C-B2→C-B3→C-B4→V-B1，且 verify 必须独立于 coding。
+
+## Alternatives Considered
+
+- 直接把 L1-B 当成代码实现完成来收口：被放弃，因为此轮完成的是执行骨架，不是代码层最终落地。
+- 把 verify 和实现揉成一个任务：被放弃，因为会破坏可审计、可回退的验收边界。
+- 不提前定义禁区与并行窗口：被放弃，因为会让后续派发再次出现混 scope 和混职责。
+
+## Related Code
+
+| Path | Role |
+| --- | --- |
+| `plans/subplan-3-subplan-l1b-最小产品动作链真实落地.json` | L1-B 计划记录与任务骨架来源 |
+| `docs/skillforge-p0-phase5-acceptance-map-and-mainline-anchor-v1.md` | 第五阶段主线与验收锚点 |
+| `docs/skillforge-p1-minimal-real-object-chain-and-state-machine-draft-v1.md` | 对象链与状态机基线 |
+| `docs/skillforge-p3-minimal-real-evidence-chain-and-regression-acceptance-baseline-draft-v1.md` | 证据链与回归验收基线 |
+
+## Consequences
+
+- 正向：后续实现任务有了稳定的执行骨架，减少一上来就混 scope 的风险。
+- 正向：verify 独立后，验收更容易审计，也更容易回退与复核。
+- 正向：工作台编辑、审批决策、Run 回看与 Skeleton 最小追溯被纳入同一推进框架，利于真实样本链路持续演进。
+- 正向：C-B1/C-B2/C-B3/C-B4 与 V-B1 的拆分关系明确，后续可直接派发原子任务。
+- 取舍：这次完成的是“骨架收口”，不等于上述能力已经在代码层全部落地。
+- 风险：如果后续派发不继续沿用这套边界，L1-B 收口会迅速失效。
+
+## Search Terms
+
+- `工作台编辑`
+- `审批决策`
+- `Run`
+- `Skeleton`
+- `verify`
+- `coding`
+- `C-B1`
+- `V-B1`

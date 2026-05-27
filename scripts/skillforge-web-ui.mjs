@@ -12,7 +12,7 @@ import { save as saveRegistryEntry, loadById as loadRegistryEntryById, list as l
 import { spawn } from 'node:child_process';
 
 const PORT = Number(process.env.PORT || 4173);
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -292,6 +292,11 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname === '/') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(homePage({ query: Object.fromEntries(url.searchParams) }));
+    return;
+  }
+  if (req.method === 'GET' && url.pathname === '/history') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(historyPage({ snapshot: latestSnapshot() }));
     return;
   }
   if (req.method === 'GET' && url.pathname === '/transcripts') {

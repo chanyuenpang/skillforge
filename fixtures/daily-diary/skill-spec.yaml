@@ -1,0 +1,52 @@
+fixtureId: daily-diary
+fixtureVersion: 0.1.0
+kind: skill-spec
+skill:
+  name: daily-diary
+  version: 0.1.0
+  title: 日常日记记录
+  description: 根据用户触发词记录日常想法到日记 JSON 文件，并支持补充上一条记录。
+  triggerPhrases:
+    - 记一下
+    - 一个想法
+    - 帮我记
+    - 补充一下
+inputs:
+  required:
+    - userUtterance
+  optional:
+    - contextDate
+    - contextTime
+outputs:
+  primary: diaryEntry
+  format: json
+  requiredSections:
+    - month
+    - entries
+    - id
+    - datetime
+    - original_content
+    - content
+    - tags
+    - lobster_comment
+    - supplements
+boundaries:
+  allowed:
+    - 记录用户直接提供的内容
+    - 将补充内容追加到当天最后一条 entry 的 supplements
+    - 限定标签最多 3 个且来自允许集合
+  fileWriteScope: 仅允许在 workspace 内对 fixtures/daily-diary/fixture-data/*.json 进行追加写入，不允许覆盖或删除
+  denied:
+    - 联网补全内容
+    - 外发日记
+    - 读取私有路径或凭证
+    - 执行删除、覆盖或系统配置修改
+    - 生成或猜测真实联系人、链接、密钥
+checklist:
+  structure: 定义输入、输出、边界和触发词。
+  trigger: 中文触发词覆盖记一下、一个想法、帮我记、补充一下。
+  boundary: 保守权限边界明确。
+  dependency: 无外部依赖。
+  replay: 可使用静态 replay cases 验证触发与拒绝行为。
+  privacy: 禁止真实敏感数据与私有路径。
+  compatibility: 版本为 0.1.0，适配静态 MVP。

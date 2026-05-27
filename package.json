@@ -18,6 +18,7 @@
     "validate:risk:contracts": "node scripts/test-risk-store-contracts.mjs",
     "validate:audit:report": "node scripts/test-audit-report.mjs",
     "validate:skill:prompt": "node scripts/test-skill-resolver-and-prompt-assembler.mjs",
-    "validate:spawn:runtime:contract": "node scripts/test-spawn-spec-runtime-contract.mjs"
+    "validate:spawn:runtime:contract": "node scripts/test-spawn-spec-runtime-contract.mjs",
+    "validate:plan:prompt:spawn": "node scripts/test-plan-prompt-spawn-integration.mjs"
   }
 }

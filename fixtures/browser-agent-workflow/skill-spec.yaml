@@ -1,0 +1,66 @@
+fixtureId: browser-agent-workflow
+fixtureVersion: 0.1.0
+kind: skill-spec
+profile: browser-e2e
+skill:
+  name: browser-agent-workflow
+  version: 1.0.0
+  title: 浏览器代理工作流
+  description: 专注于端到端 UI 验证的浏览器专家，通过控制真实浏览器执行完整的用户交互流程。
+  triggerPhrases:
+    - browser agent
+    - browser-agent-workflow
+    - 浏览器验证
+    - 端到端验证
+    - UI 验证
+    - 视觉回归
+inputs:
+  required:
+    - targetUrl
+    - validationGoal
+  optional:
+    - viewport
+    - screenshotPlan
+    - testData
+outputs:
+  primary: verificationReport
+  format: json
+  requiredSections:
+    - summary
+    - steps
+    - screenshots
+    - issues
+    - consoleErrors
+    - networkFailures
+boundaries:
+  allowed:
+    - 真实浏览器端到端验证
+    - 先脚本探测再必要交互再结果验证
+    - 收集截图、控制台错误与网络失败
+    - 使用 BrowserOS MCP 工具完成浏览器操作
+  denied:
+    - 修改代码或项目文件
+    - 单元测试职责
+    - 根因分析职责
+    - 执行 OpenClaw 自身 restart/start/stop
+permissions:
+  externalSend: false
+  fileRead: true
+  fileWrite: false
+  destructiveOperations: false
+  privatePathRead: false
+dependencies:
+  noneDeclared: true
+  items: []
+riskPoints:
+  - BrowserOS MCP 必须保持 browser-agent 专属隔离。
+  - 连续两次失败应停止重试并报告真实阻塞。
+  - snapshot 不能作为默认主路径。
+checklist:
+  structure: 包含输入、输出、边界与结果报告结构。
+  trigger: 覆盖 browser agent、端到端验证、UI 验证、视觉回归。
+  boundary: 明确禁止代码修改、单测和 OpenClaw 自身重启。
+  dependency: 无外部依赖。
+  risk: 明确隔离、失败重试与脚本优先风险。
+  compatibility: 适配静态 MVP 验证。
+  replay: 回放用例需包含 intent 与 expected behavior。

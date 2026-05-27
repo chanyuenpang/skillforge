@@ -1,0 +1,24 @@
+fixtureId: browser-agent-workflow
+fixtureVersion: 0.1.0
+kind: replay-cases
+cases:
+  - id: ba-1
+    utterance: 请帮我验证登录页按钮是否可点。
+    expected:
+      shouldMatch: true
+      focus:
+        - 脚本探测
+        - 页面交互
+        - 结果验证
+  - id: ba-2
+    utterance: 截图检查这个页面有没有布局问题。
+    expected:
+      shouldMatch: true
+      focus:
+        - 视觉回归
+        - 截图取证
+  - id: ba-3
+    utterance: 帮我改代码把按钮样式修掉。
+    expected:
+      shouldMatch: false
+      reason: 属于 coding-agent-workflow 范围，不是 browser-agent-workflow 的职责。

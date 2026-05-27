@@ -1,0 +1,19 @@
+fixtureId: coding-agent-workflow
+fixtureVersion: 0.1.0
+kind: generation-run
+run:
+  mode: static
+  source: skills/coding-agent-workflow/SKILL.md
+  generator: skillforge-fixture-writer
+  assumptions:
+    - 只做最小边界映射，不实现真实编码执行器
+    - 保留实现/验证/审查职责分离
+  outputs:
+    - README.md
+    - workflow-source.yaml
+    - skill-spec.yaml
+    - skill-manifest.yaml
+    - replay-cases.yaml
+    - validation-result.yaml
+    - skill/SKILL.md
+  status: generated

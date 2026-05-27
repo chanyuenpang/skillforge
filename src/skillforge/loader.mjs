@@ -311,3 +311,19 @@ export async function loadFixture(fixtureDir) {
 }
 
 export default loadFixture;
+
+// ── Retro module re-exports (E1-E: structured retro completion) ──
+export {
+  createRetroRecord,
+  validateRetroRecord,
+  RETRO_STATUS_VALUES,
+  RETRO_DECISION_VALUES,
+} from "./retro-record.mjs";
+
+export {
+  createRetro,
+  finalizeRetro,
+  getRetroState,
+  listRecentRetros,
+  listRetroHistory,
+} from "./retro-store.mjs";

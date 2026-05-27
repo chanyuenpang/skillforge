@@ -12,3 +12,6 @@
 ## 重要索引
 
 - [`features/skillforge-fixture-profiles.md`](features/skillforge-fixture-profiles.md)：SkillForge fixture profile 分层、`release-notes-assistant` standard fixture、验证入口、contract test 锚点、最小 CI gate 与已知边界。
+- [`features/web-ui-approval-history-and-smoke-regression-baseline.md`](features/web-ui-approval-history-and-smoke-regression-baseline.md)：Web UI 三页 SPA 职责分离、页面行为规则、~50 条回归用例分层方案（API 契约/组件/smoke）。
+- [`adr/ADR-0049-skillforge-web-ui-complete-usable-roadmap-and-contract-boundaries.md`](adr/ADR-0049-skillforge-web-ui-complete-usable-roadmap-and-contract-boundaries.md)：网页端完整可用化的推进方向 ADR。
+- [`adr/ADR-0050-skillforge-web-ui-api-gateway-and-regression-baseline.md`](adr/ADR-0050-skillforge-web-ui-api-gateway-and-regression-baseline.md)：Web UI 协议收口与回归基线固化的推进方式 ADR。
