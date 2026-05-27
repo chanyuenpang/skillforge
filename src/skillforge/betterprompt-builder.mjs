@@ -9,6 +9,7 @@
 import { validateBetterPromptInput, validateBetterPromptOutput } from './betterprompt-contract.mjs';
 import { loadSkillBundlesFromDir } from './skill-bundle-loader.mjs';
 import { matchBundles } from './skill-bundle-matcher.mjs';
+import { buildBetterPromptFallbackEnvelope } from './betterprompt-fallback.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -535,10 +536,36 @@ export async function buildBetterPromptPackage(input) {
 
   // Step 6: QC
   const qc_result = runQC(output, selectedSkills, data);
+  const fallback = buildBetterPromptFallbackEnvelope({
+    package: output,
+    qc_result,
+    reason: qc_result?.pass === true ? null : 'qc_gate_failed',
+  });
+
+  output.metadata = {
+    ...(output.metadata || {}),
+    fallback_used: fallback.fallback_used,
+    fallback_mode: fallback.fallback_mode,
+    alert_level: fallback.alert_level,
+    recoverable: fallback.recoverable,
+    package_minimal_ready: fallback.package_minimal_ready,
+  };
+
+  output.guardrails = {
+    ...(output.guardrails || {}),
+    fallback: {
+      used: fallback.fallback_used,
+      mode: fallback.fallback_mode,
+      recoverable: fallback.recoverable,
+      reason: fallback.reason,
+      qc_issue_count: fallback.qc_issue_count,
+    },
+  };
 
   return {
     package: output,
     qc_result,
+    fallback,
     _debug: {
       slots: { must: [...slots.must], should: [...slots.should] },
       scored: selectedSkills.map(s => ({

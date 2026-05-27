@@ -32,6 +32,7 @@ export function buildBetterPromptRunCenterView(record = {}) {
     output.packageType ??
     'betterprompt-default';
 
+  const fallback = payload.fallback ?? output.fallback ?? null;
   const observabilityStatus = inferObservabilityStatus(record);
 
   return {
@@ -54,6 +55,7 @@ export function buildBetterPromptRunCenterView(record = {}) {
 
     selected_skills: Array.isArray(selectedSkills) ? selectedSkills : [selectedSkills].filter(Boolean),
     qc_result: qcResult,
+    fallback,
 
     promptPackageType,
 
@@ -70,7 +72,7 @@ export function buildBetterPromptRunCenterView(record = {}) {
       trace_refs: Array.isArray(record?.traceRefs)
         ? record.traceRefs.filter((x) => typeof x === 'string' && x.trim())
         : [],
-      alert_level: inferAlertLevel(observabilityStatus),
+      alert_level: fallback?.alert_level ?? inferAlertLevel(observabilityStatus),
     },
   };
 }

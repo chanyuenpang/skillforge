@@ -50,6 +50,7 @@ export function buildSkillBundleRunCenterView(record) {
     selectedSkills: Array.isArray(record.selectedSkills) ? record.selectedSkills : [],
     score: typeof record.score === "number" ? record.score : null,
     reason: record.reason ?? null,
+    fallback: record.fallback ?? null,
 
     bundleRef: record.bundleRef ?? null,
     planRef: record.planRef ?? null,
@@ -63,7 +64,7 @@ export function buildSkillBundleRunCenterView(record) {
       trace_refs: Array.isArray(record.traceRefs)
         ? record.traceRefs.filter((x) => typeof x === "string" && x.trim())
         : [],
-      alert_level: inferAlertLevel(observabilityStatus),
+      alert_level: record?.fallback?.alert_level ?? inferAlertLevel(observabilityStatus),
     },
   };
 }
