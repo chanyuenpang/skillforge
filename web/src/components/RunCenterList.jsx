@@ -331,24 +331,59 @@ export default function RunCenterList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item) => (
+                  {items.map((item) => {
+                    const bw = item.betterWorkflowRunCenterView;
+                    const hasBw = bw && bw.kind === 'betterworkflow.run';
+                    return (
                     <tr key={item._runId || `${item._source}-${item._startedAt}`}>
                       <td>
                         <div style={{ display: 'grid', gap: 2 }}>
+                          {/* ── betterWorkflow 标识 ── */}
+                          {hasBw && (
+                            <div style={{ marginBottom: 4 }}>
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                                  color: '#fff',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  padding: '1px 7px',
+                                  borderRadius: 4,
+                                  letterSpacing: '0.02em',
+                                  marginBottom: 2,
+                                }}
+                              >
+                                BW
+                              </span>
+                              <span
+                                style={{
+                                  marginLeft: 6,
+                                  fontSize: '0.78rem',
+                                  color: '#7c3aed',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {bw.title || 'betterWorkflow 运行'}
+                              </span>
+                            </div>
+                          )}
                           <div style={{ fontWeight: 600, lineHeight: 1.4 }}>
                             {item._runId ? (
                               <Link
                                 to={`/run-center/runs/${encodeURIComponent(item._runId)}`}
                                 state={{ from: location.pathname + location.search }}
                                 className="queue-row-link"
-                                title={item._humanTitle}
+                                title={hasBw ? (bw.title || item._humanTitle) : item._humanTitle}
                               >
-                                {item._humanTitle}
+                                {hasBw ? (bw.summary || bw.title || item._humanTitle) : item._humanTitle}
                               </Link>
-                            ) : item._humanTitle}
+                            ) : (hasBw ? (bw.summary || bw.title || item._humanTitle) : item._humanTitle)}
                           </div>
                           <div className="subtle" style={{ fontSize: '0.8rem', lineHeight: 1.4 }}>
-                            {item._humanSubtitle}
+                            {hasBw && bw.counts
+                              ? `${bw.counts.milestones || 0} 里程碑 · ${bw.counts.tasks || 0} 任务 · ${bw.counts.phases || 0} 阶段 · ${bw.counts.atomicTasks || 0} 原子任务`
+                              : item._humanSubtitle}
                           </div>
                         </div>
                       </td>
@@ -366,12 +401,19 @@ export default function RunCenterList() {
                       </td>
                       <td className="subtle" style={{ lineHeight: 1.4 }}>
                         <div>来源：{item._source}</div>
+                        {hasBw && bw.planRef ? (
+                          <div style={{ fontSize: '0.72rem', color: '#a855f7' }}>Plan: {bw.planRef}</div>
+                        ) : null}
+                        {hasBw && bw.taskRef ? (
+                          <div style={{ fontSize: '0.72rem', color: '#a855f7' }}>Task: {bw.taskRef}</div>
+                        ) : null}
                         <div className="td-mono" style={{ fontSize: '0.72rem' }}>运行编号: {item._runId || '未知'}</div>
                       </td>
                       <td className="td-time">{formatDateTime(item._startedAt)}</td>
                       <td>{formatDuration(item._duration)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
