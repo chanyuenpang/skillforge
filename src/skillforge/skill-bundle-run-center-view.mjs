@@ -1,3 +1,16 @@
+function inferObservabilityStatus(record) {
+  const status = String(record?.status ?? "").toLowerCase();
+  if (["failed", "error"].includes(status)) return "error";
+  if (["running", "pending"].includes(status)) return "degraded";
+  return "ok";
+}
+
+function inferAlertLevel(obsStatus) {
+  if (obsStatus === "error") return "error";
+  if (obsStatus === "degraded") return "warn";
+  return "info";
+}
+
 function buildTitle(record) {
   const goal = record?.inputSummary?.projectGoal;
   if (goal) return `Skill Bundle · ${goal}`;
@@ -19,6 +32,8 @@ export function buildSkillBundleRunCenterView(record) {
   if (!record || typeof record !== "object") {
     throw new Error("buildSkillBundleRunCenterView requires a non-null record object");
   }
+
+  const observabilityStatus = inferObservabilityStatus(record);
 
   return {
     kind: "skillbundle.run",
@@ -42,6 +57,14 @@ export function buildSkillBundleRunCenterView(record) {
     traceRefs: record.traceRefs ?? null,
     artifactRef: record.artifactPath ?? null,
     durationMs: record.durationMs ?? null,
+    observability: {
+      status: observabilityStatus,
+      duration_ms: Number.isFinite(Number(record.durationMs)) ? Number(record.durationMs) : 0,
+      trace_refs: Array.isArray(record.traceRefs)
+        ? record.traceRefs.filter((x) => typeof x === "string" && x.trim())
+        : [],
+      alert_level: inferAlertLevel(observabilityStatus),
+    },
   };
 }
 

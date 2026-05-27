@@ -1016,6 +1016,31 @@ export default function RunCenterDetail() {
                 </section>
               ) : null}
 
+              {detail?.observability ? (
+                <section
+                  style={{
+                    marginTop: 10,
+                    marginBottom: 14,
+                    padding: '12px 14px',
+                    borderRadius: 8,
+                    borderLeft: '3px solid #f59e0b',
+                    background: 'rgba(245, 158, 11, 0.08)',
+                  }}
+                >
+                  <h3 style={{ margin: '0 0 8px', fontSize: '0.95rem' }}>Observability</h3>
+                  <dl className="run-meta-grid" style={{ margin: 0 }}>
+                    <dt>Status</dt>
+                    <dd>{detail.observability.status || '-'}</dd>
+                    <dt>Duration</dt>
+                    <dd>{formatDuration(detail.observability.duration_ms)}</dd>
+                    <dt>Alert Level</dt>
+                    <dd>{detail.observability.alert_level || '-'}</dd>
+                    <dt>Trace Refs</dt>
+                    <dd>{Array.isArray(detail.observability.trace_refs) && detail.observability.trace_refs.length > 0 ? detail.observability.trace_refs.join(', ') : '-'}</dd>
+                  </dl>
+                </section>
+              ) : null}
+
               {/* 次级元数据栏（runId 退到 footer） */}
               <BackChain fromPath={fromPath} onFallbackBack={handleFallbackBack} />
               <MetaBar

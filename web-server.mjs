@@ -803,6 +803,17 @@ function mapRunItem(log) {
     }
   }
 
+  base.observability =
+    base.betterWorkflowRunCenterView?.observability ??
+    base.betterPromptRunCenterView?.observability ??
+    base.skillBundleRunCenterView?.observability ??
+    {
+      status: ['failed', 'error'].includes(String(base.status || '').toLowerCase()) ? 'error' : 'ok',
+      duration_ms: Number.isFinite(Number(base.durationMs)) ? Number(base.durationMs) : 0,
+      trace_refs: Array.isArray(base.traceRefs) ? base.traceRefs.filter((x) => typeof x === 'string' && x.trim()) : [],
+      alert_level: ['failed', 'error'].includes(String(base.status || '').toLowerCase()) ? 'error' : 'info',
+    };
+
   base.responsibleView = buildRunResponsibleView(base);
   return base;
 }

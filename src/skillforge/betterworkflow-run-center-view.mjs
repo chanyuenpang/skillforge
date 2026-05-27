@@ -56,6 +56,19 @@ function extractCounts(record) {
   };
 }
 
+function inferObservabilityStatus(record) {
+  const status = String(record?.status ?? "").toLowerCase();
+  if (["failed", "error"].includes(status)) return "error";
+  if (["running", "pending"].includes(status)) return "degraded";
+  return "ok";
+}
+
+function inferAlertLevel(obsStatus) {
+  if (obsStatus === "error") return "error";
+  if (obsStatus === "degraded") return "warn";
+  return "info";
+}
+
 function extractInputSummary(record) {
   const src = record?.inputSummary;
   if (!src) return null;
@@ -127,6 +140,15 @@ export function buildBetterWorkflowRunCenterView(record) {
     artifactRef: record.artifactPath ?? null,
 
     durationMs: record.durationMs ?? null,
+
+    observability: {
+      status: inferObservabilityStatus(record),
+      duration_ms: Number.isFinite(Number(record.durationMs)) ? Number(record.durationMs) : 0,
+      trace_refs: Array.isArray(record.traceRefs)
+        ? record.traceRefs.filter((x) => typeof x === "string" && x.trim())
+        : [],
+      alert_level: inferAlertLevel(inferObservabilityStatus(record)),
+    },
   };
 }
 

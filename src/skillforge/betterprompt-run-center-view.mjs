@@ -1,3 +1,16 @@
+function inferObservabilityStatus(record = {}) {
+  const status = String(record?.status ?? '').toLowerCase();
+  if (['failed', 'error'].includes(status)) return 'error';
+  if (['running', 'pending'].includes(status)) return 'degraded';
+  return 'ok';
+}
+
+function inferAlertLevel(obsStatus) {
+  if (obsStatus === 'error') return 'error';
+  if (obsStatus === 'degraded') return 'warn';
+  return 'info';
+}
+
 export function buildBetterPromptRunCenterView(record = {}) {
   const payload = record?.payload && typeof record.payload === 'object' ? record.payload : {};
   const output = record?.output && typeof record.output === 'object' ? record.output : {};
@@ -18,6 +31,8 @@ export function buildBetterPromptRunCenterView(record = {}) {
     payload.packageType ??
     output.packageType ??
     'betterprompt-default';
+
+  const observabilityStatus = inferObservabilityStatus(record);
 
   return {
     kind: 'betterPromptRunCenterView',
@@ -48,5 +63,14 @@ export function buildBetterPromptRunCenterView(record = {}) {
 
     artifactRef: record?.artifactRef ?? output?.artifactRef ?? null,
     durationMs: record?.durationMs ?? null,
+
+    observability: {
+      status: observabilityStatus,
+      duration_ms: Number.isFinite(Number(record?.durationMs)) ? Number(record.durationMs) : 0,
+      trace_refs: Array.isArray(record?.traceRefs)
+        ? record.traceRefs.filter((x) => typeof x === 'string' && x.trim())
+        : [],
+      alert_level: inferAlertLevel(observabilityStatus),
+    },
   };
 }
