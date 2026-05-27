@@ -39,6 +39,7 @@ import {
 } from './src/skillforge/execution-log-store.mjs';
 import { buildBetterWorkflowRunCenterView } from './src/skillforge/betterworkflow-run-center-view.mjs';
 import { buildBetterPromptRunCenterView } from './src/skillforge/betterprompt-run-center-view.mjs';
+import { buildSkillBundleRunCenterView } from './src/skillforge/skill-bundle-run-center-view.mjs';
 import {
   buildPlanLogEntry,
   save as savePlanLog,
@@ -791,6 +792,14 @@ function mapRunItem(log) {
       base.betterPromptRunCenterView = buildBetterPromptRunCenterView(log);
     } catch {
       base.betterPromptRunCenterView = null;
+    }
+  }
+
+  if (base.source === 'skill-bundle-soft-recommendation') {
+    try {
+      base.skillBundleRunCenterView = buildSkillBundleRunCenterView(log);
+    } catch {
+      base.skillBundleRunCenterView = null;
     }
   }
 

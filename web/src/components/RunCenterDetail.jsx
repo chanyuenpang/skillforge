@@ -836,6 +836,86 @@ export default function RunCenterDetail() {
                 </section>
               ) : null}
 
+              {/* ── Skill Bundle Run Center View ── */}
+              {detail?.skillBundleRunCenterView ? (
+                <section
+                  style={{
+                    marginTop: 10,
+                    marginBottom: 14,
+                    padding: '12px 14px',
+                    borderRadius: 8,
+                    borderLeft: '3px solid #16a34a',
+                    background: 'linear-gradient(135deg, rgba(22,163,74,0.06) 0%, rgba(34,197,94,0.04) 100%)',
+                  }}
+                >
+                  <h3 style={{ margin: '0 0 8px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+                        color: '#fff',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        letterSpacing: '0.02em',
+                      }}
+                    >
+                      SB
+                    </span>
+                    Skill Bundle 运行概况
+                  </h3>
+                  <dl className="run-meta-grid" style={{ margin: 0 }}>
+                    {detail.skillBundleRunCenterView.title ? (
+                      <>
+                        <dt>标题</dt>
+                        <dd style={{ fontWeight: 600 }}>{detail.skillBundleRunCenterView.title}</dd>
+                      </>
+                    ) : null}
+                    {detail.skillBundleRunCenterView.summary ? (
+                      <>
+                        <dt>摘要</dt>
+                        <dd>{detail.skillBundleRunCenterView.summary}</dd>
+                      </>
+                    ) : null}
+                    <>
+                      <dt>Selected</dt>
+                      <dd>{detail.skillBundleRunCenterView.selectedCount || 0} 个技能</dd>
+                    </>
+                    {Array.isArray(detail.skillBundleRunCenterView.selectedSkills) && detail.skillBundleRunCenterView.selectedSkills.length > 0 ? (
+                      <>
+                        <dt>Selected Skills</dt>
+                        <dd>{detail.skillBundleRunCenterView.selectedSkills.join(', ')}</dd>
+                      </>
+                    ) : null}
+                    {typeof detail.skillBundleRunCenterView.score === 'number' ? (
+                      <>
+                        <dt>Score</dt>
+                        <dd>{detail.skillBundleRunCenterView.score}</dd>
+                      </>
+                    ) : null}
+                    {detail.skillBundleRunCenterView.bundleRef ? (
+                      <>
+                        <dt>Bundle Ref</dt>
+                        <dd><code>{detail.skillBundleRunCenterView.bundleRef}</code></dd>
+                      </>
+                    ) : null}
+                    {detail.skillBundleRunCenterView.planRef ? (
+                      <>
+                        <dt>Plan Ref</dt>
+                        <dd><code>{detail.skillBundleRunCenterView.planRef}</code></dd>
+                      </>
+                    ) : null}
+                    {detail.skillBundleRunCenterView.taskRef ? (
+                      <>
+                        <dt>Task Ref</dt>
+                        <dd><code>{detail.skillBundleRunCenterView.taskRef}</code></dd>
+                      </>
+                    ) : null}
+                  </dl>
+                </section>
+              ) : null}
+
               {/* ── betterWorkflow Run Center View ── */}
               {detail?.betterWorkflowRunCenterView ? (
                 <section
