@@ -37,6 +37,7 @@ import {
   save as saveExecLog,
   buildExecutionLogEntry,
 } from './src/skillforge/execution-log-store.mjs';
+import { buildBetterWorkflowRunCenterView } from './src/skillforge/betterworkflow-run-center-view.mjs';
 import {
   buildPlanLogEntry,
   save as savePlanLog,
@@ -773,6 +774,17 @@ function mapRunItem(log) {
     input: log.input ?? null,
     output: log.output ?? null,
   };
+
+  // Minimal read-only adapter: if this is a betterWorkflow execution record,
+  // expose a run-center-view payload for downstream UI/data consumers.
+  if (base.source === 'betterworkflow-pipeline') {
+    try {
+      base.betterWorkflowRunCenterView = buildBetterWorkflowRunCenterView(log);
+    } catch {
+      base.betterWorkflowRunCenterView = null;
+    }
+  }
+
   base.responsibleView = buildRunResponsibleView(base);
   return base;
 }
