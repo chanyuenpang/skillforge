@@ -713,16 +713,16 @@ export default function RunCenterDetail() {
                   <HumanSummaryBlock
                     icon="📥"
                     label="这次运行在做什么"
-                    content={humanInput?.content || null}
-                    sourceHint={humanInput?.source || null}
+                    content={detail?.rawInput || humanInput?.content || null}
+                    sourceHint={detail?.rawInput ? 'rawInput' : humanInput?.source || null}
                   />
 
                   {/* 输出 — 这次运行产出了什么 */}
                   <HumanSummaryBlock
                     icon={isFailure ? '❌' : '📤'}
                     label={isFailure ? '为什么失败' : '这次运行产出了什么'}
-                    content={humanOutput?.content || null}
-                    sourceHint={humanOutput?.source || null}
+                    content={detail?.rawOutput || humanOutput?.content || null}
+                    sourceHint={detail?.rawOutput ? 'rawOutput' : humanOutput?.source || null}
                     variant={isFailure ? 'failure' : humanOutput ? 'success' : 'default'}
                   />
                 </>

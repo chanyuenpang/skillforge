@@ -119,6 +119,8 @@ export function buildExecutionLogEntry({
   output = null,
   inputMessage = null,
   outputMessage = null,
+  rawInput = null,
+  rawOutput = null,
   failureMessage = null,
 } = {}) {
   return {
@@ -135,6 +137,8 @@ export function buildExecutionLogEntry({
     output: output && typeof output === "object" ? output : null,
     inputMessage: typeof inputMessage === "string" && inputMessage.trim() ? inputMessage.trim() : null,
     outputMessage: typeof outputMessage === "string" && outputMessage.trim() ? outputMessage.trim() : null,
+    rawInput: typeof rawInput === "string" && rawInput.trim() ? rawInput.trim() : null,
+    rawOutput: typeof rawOutput === "string" && rawOutput.trim() ? rawOutput.trim() : null,
     failureMessage: typeof failureMessage === "string" && failureMessage.trim()
       ? failureMessage.trim()
       : (status === "failed" ? (typeof errorMessage === "string" && errorMessage.trim() ? errorMessage.trim() : null) : null),

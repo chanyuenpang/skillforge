@@ -2002,12 +2002,16 @@ const server = http.createServer(async (req, res) => {
           try {
             const lineage = getLineage(matched.taskRunId);
             if (lineage?.init) {
+              const rawInput = body.input || null;
+              const rawOutput = body.output || body.message || null;
               const execEntry = buildExecutionLogEntry({
                 fixtureId: lineage.init.fixtureId,
                 status: 'completed',
                 source: 'task-run',
                 durationMs: result.durationMs,
                 evidenceRefs: { taskRunId: matched.taskRunId },
+                rawInput: typeof rawInput === 'string' ? rawInput : null,
+                rawOutput: typeof rawOutput === 'string' ? rawOutput : null,
               });
               saveExecLog(execEntry);
             }
@@ -2034,12 +2038,16 @@ const server = http.createServer(async (req, res) => {
           try {
             const lineage = getLineage(matched.taskRunId);
             if (lineage?.init) {
+              const rawInput = body.input || null;
+              const rawOutput = body.output || body.message || null;
               const execEntry = buildExecutionLogEntry({
                 fixtureId: lineage.init.fixtureId,
                 status: 'failed',
                 source: 'task-run',
                 errorMessage: `${result.errorCode}: ${body.message ?? 'Task run failed'}`,
                 evidenceRefs: { taskRunId: matched.taskRunId },
+                rawInput: typeof rawInput === 'string' ? rawInput : null,
+                rawOutput: typeof rawOutput === 'string' ? rawOutput : null,
               });
               saveExecLog(execEntry);
             }
