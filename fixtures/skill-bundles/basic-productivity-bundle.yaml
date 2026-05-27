@@ -1,0 +1,9 @@
+version: "0.1"
+bundle_id: "productivity-basic"
+title: "Productivity Basic Bundle"
+description: "Minimal bundle for productivity workflows"
+skill_refs:
+  - skill_id: "meeting-summary-assistant"
+    note: "Summarize meetings quickly"
+  - skill_id: "daily-diary"
+  - note: "broken ref without skill_id"

@@ -20,7 +20,8 @@
     "validate:skill:prompt": "node scripts/test-skill-resolver-and-prompt-assembler.mjs",
     "validate:spawn:runtime:contract": "node scripts/test-spawn-spec-runtime-contract.mjs",
     "validate:plan:prompt:spawn": "node scripts/test-plan-prompt-spawn-integration.mjs",
-    "validate:betterprompt:builder": "node scripts/test-betterprompt-builder.mjs"
+    "validate:betterprompt:builder": "node scripts/test-betterprompt-builder.mjs",
+    "validate:skill:bundle:loader": "node scripts/test-skill-bundle-loader.mjs"
   },
   "dependencies": {
     "zod": "^4.4.3"

@@ -1,0 +1,6 @@
+version: "0.1"
+bundle_id: "team-ops"
+title: "Team Ops Bundle"
+skill_refs:
+  - skill_id: "release-notes-assistant"
+  - skill_id: "task-planning"
