@@ -1,6 +1,14 @@
 version: "0.1"
 bundle_id: "team-ops"
 title: "Team Ops Bundle"
+description: "Support team incident response, release checklist tracking, and runbook-driven operations."
+tags:
+  - "team ops"
+  - "incident response"
+  - "release checklist"
+use_cases:
+  - "team incident response runbook"
+  - "release checklist automation"
 skill_refs:
   - skill_id: "release-notes-assistant"
   - skill_id: "task-planning"
