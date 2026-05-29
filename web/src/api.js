@@ -175,6 +175,11 @@ export async function getRunCenterSummary() {
   return request('/run-center/summary');
 }
 
+/** Shared Baseline v0 摘要（只读） */
+export async function fetchBaselineSummary() {
+  return request('/baseline/shared-v0/summary');
+}
+
 /** 运行列表（只读） */
 export async function getRunCenterRuns(params = {}) {
   const qs = new URLSearchParams();

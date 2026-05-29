@@ -1,16 +1,16 @@
 {
   "runner": "run-shared-baseline-v0",
   "protocol": "shared-sample.v0",
-  "run_id": "eb970728-fc1f-446a-8488-552fc67526cb",
-  "started_at": "2026-05-29T15:22:21.483Z",
-  "finished_at": "2026-05-29T15:23:31.918Z",
-  "duration_ms": 70435,
+  "run_id": "caf09e1c-9d7a-4302-a187-0c518960b72f",
+  "started_at": "2026-05-29T15:30:02.543Z",
+  "finished_at": "2026-05-29T15:31:35.460Z",
+  "duration_ms": 92917,
   "stages": [
     {
       "dataset": "betterprompt",
       "status": "completed",
       "exit_code": 0,
-      "duration_ms": 32,
+      "duration_ms": 28,
       "metrics": {
         "total_samples": 4,
         "passed": 4,
@@ -21,8 +21,8 @@
         {
           "id": "bp-clear-goal-landing-copy-v1",
           "status": "passed",
-          "duration_ms": 4,
-          "betterprompt_package_id": "betterprompt-v1-1780068141514",
+          "duration_ms": 3,
+          "betterprompt_package_id": "betterprompt-v1-1780068602575",
           "betterprompt_skills": [
             "default-general"
           ],
@@ -33,7 +33,7 @@
           "id": "bp-missing-info-dispatch-policy-v1",
           "status": "passed",
           "duration_ms": 0,
-          "betterprompt_package_id": "betterprompt-v1-1780068141516",
+          "betterprompt_package_id": "betterprompt-v1-1780068602577",
           "betterprompt_skills": [
             "default-general"
           ],
@@ -44,7 +44,7 @@
           "id": "bp-conflicting-constraints-regression-v1",
           "status": "passed",
           "duration_ms": 0,
-          "betterprompt_package_id": "betterprompt-v1-1780068141516",
+          "betterprompt_package_id": "betterprompt-v1-1780068602577",
           "betterprompt_skills": [
             "default-general"
           ],
@@ -55,7 +55,7 @@
           "id": "bp-raw-evidence-present-v1",
           "status": "passed",
           "duration_ms": 0,
-          "betterprompt_package_id": "betterprompt-v1-1780068141516",
+          "betterprompt_package_id": "betterprompt-v1-1780068602577",
           "betterprompt_skills": [
             "default-general"
           ],
@@ -69,7 +69,7 @@
       "dataset": "betterplan",
       "status": "completed",
       "exit_code": 0,
-      "duration_ms": 32930,
+      "duration_ms": 48767,
       "metrics": {
         "total_samples": 2,
         "passed": 2,
@@ -80,22 +80,22 @@
         {
           "id": "bplan-minimal-from-workflow-artifact-1",
           "status": "passed",
-          "duration_ms": 10778,
+          "duration_ms": 23436,
           "betterplan_goal": "SkillForge 主计划补最小 artifact 留痕并产出真实样本",
           "betterplan_skeleton_len": 3,
           "betterplan_fallback_used": false,
           "betterplan_confidence": 0.9,
-          "result_digest": "{\"goal\":\"SkillForge 主计划补最小 artifact 留痕并产出真实样本\",\"boundaries\":[\"只做第一轮最小可运行打样\",\"不接入 execution-log / run center\"],\"skeleton_len\":3,\"gaps\":[\"未明确真实样本的具体内容和格式\",\"artifact 留痕的具体实现方式未定义\"],\"confidence\":0.9}"
+          "result_digest": "{\"goal\":\"SkillForge 主计划补最小 artifact 留痕并产出真实样本\",\"boundaries\":[\"只做第一轮最小可运行打样，不扩展后续迭代\",\"不接入 execution-log 或 run center 组件\"],\"skeleton_len\":3,\"gaps\":[\"artifact 留痕的具体格式和存储方式未定义\",\"真实样本的规格、数量和来源未明确\"],\"confidence\":0.9}"
         },
         {
           "id": "bplan-minimal-from-workflow-artifact-2",
           "status": "passed",
-          "duration_ms": 22150,
-          "betterplan_goal": "SkillForge 主计划补最小 artifact 留痕并产出真实样本（第二条）",
-          "betterplan_skeleton_len": 5,
+          "duration_ms": 25330,
+          "betterplan_goal": "SkillForge 主计划补最小 artifact 留痕并产出真实样本",
+          "betterplan_skeleton_len": 6,
           "betterplan_fallback_used": false,
           "betterplan_confidence": 0.9,
-          "result_digest": "{\"goal\":\"SkillForge 主计划补最小 artifact 留痕并产出真实样本（第二条）\",\"boundaries\":[\"只做第一轮最小可运行打样\",\"不接 execution-log / run center\"],\"skeleton_len\":5,\"gaps\":[\"未明确 artifact 具体类型与留痕格式\",\"真实样本的产出标准与可复用验证方式未定义\"],\"confidence\":0.9}"
+          "result_digest": "{\"goal\":\"SkillForge 主计划补最小 artifact 留痕并产出真实样本\",\"boundaries\":[\"只做第一轮最小可运行打样\",\"不接 execution-log / run center\"],\"skeleton_len\":6,\"gaps\":[\"未明确 artifact 具体格式与存储方式\",\"样本的真实数据来源与内容未定义\"],\"confidence\":0.9}"
         }
       ],
       "capability": "full"
@@ -149,8 +149,8 @@
         {
           "id": "bp2-docs-summary-cta-v1",
           "status": "passed",
-          "duration_ms": 0,
-          "betterprompt_package_id": "betterprompt-v1-1780068174452",
+          "duration_ms": 1,
+          "betterprompt_package_id": "betterprompt-v1-1780068651351",
           "betterprompt_skills": [
             "default-general"
           ],
@@ -161,7 +161,7 @@
           "id": "bp2-release-note-risk-brief-v1",
           "status": "passed",
           "duration_ms": 0,
-          "betterprompt_package_id": "betterprompt-v1-1780068174452",
+          "betterprompt_package_id": "betterprompt-v1-1780068651351",
           "betterprompt_skills": [
             "default-general"
           ],
@@ -175,7 +175,7 @@
       "dataset": "betterplan",
       "status": "completed",
       "exit_code": 0,
-      "duration_ms": 37463,
+      "duration_ms": 44107,
       "metrics": {
         "total_samples": 2,
         "passed": 2,
@@ -186,22 +186,22 @@
         {
           "id": "bplan2-baseline-batch2-onboarding-1",
           "status": "passed",
-          "duration_ms": 19006,
+          "duration_ms": 18849,
           "betterplan_goal": "为 Shared Baseline v0 接入 Batch 2 样本并保证可运行。",
           "betterplan_skeleton_len": 3,
           "betterplan_fallback_used": false,
           "betterplan_confidence": 0.9,
-          "result_digest": "{\"goal\":\"为 Shared Baseline v0 接入 Batch 2 样本并保证可运行。\",\"boundaries\":[\"仅允许通过 manifest 追加与新增样本文件完成接入\",\"不得修改 runner 与 nightly workflow\"],\"skeleton_len\":3,\"gaps\":[\"未明确样本文件具体格式和 manifest 的精确位置及更新方式\"],\"confidence\":0.9}"
+          "result_digest": "{\"goal\":\"为 Shared Baseline v0 接入 Batch 2 样本并保证可运行。\",\"boundaries\":[\"仅允许通过 manifest 追加与新增样本文件完成接入，不得修改 runner 与 nightly workflow\",\"必须保持 protocol 为 shared-sample.v0，dataset 仅使用 betterprompt/betterplan/integration\"],\"skeleton_len\":3,\"gaps\":[\"未明确样本文件的具体内容格式和命名规范\",\"未说明 manifest 中 count 如何计算和更新\"],\"confidence\":0.9}"
         },
         {
           "id": "bplan2-comparability-smoke-check-1",
           "status": "passed",
-          "duration_ms": 18457,
-          "betterplan_goal": "补一个最小可比性检查计划，确保 Batch1/Batch2 可统一执行",
+          "duration_ms": 25258,
+          "betterplan_goal": "补一个最小可比性检查计划，确保 Batch1/Batch2 可统一执行。",
           "betterplan_skeleton_len": 3,
           "betterplan_fallback_used": false,
           "betterplan_confidence": 0.9,
-          "result_digest": "{\"goal\":\"补一个最小可比性检查计划，确保 Batch1/Batch2 可统一执行\",\"boundaries\":[\"不改变 runner 读取逻辑\",\"不改 nightly workflow\"],\"skeleton_len\":3,\"gaps\":[\"提取失败：未从 LLM 输出中识别到缺口信息\"],\"confidence\":0.9}"
+          "result_digest": "{\"goal\":\"补一个最小可比性检查计划，确保 Batch1/Batch2 可统一执行。\",\"boundaries\":[\"不改变 runner 读取逻辑\",\"不改 nightly workflow\"],\"skeleton_len\":3,\"gaps\":[\"提取失败：未从 LLM 输出中识别到缺口信息\"],\"confidence\":0.9}"
         }
       ],
       "capability": "full"
@@ -210,7 +210,7 @@
       "dataset": "integration",
       "status": "completed",
       "exit_code": 0,
-      "duration_ms": 3,
+      "duration_ms": 1,
       "metrics": {
         "total_samples": 2,
         "passed": 2,
@@ -230,7 +230,7 @@
         {
           "id": "int2-comparability-baseline-v1",
           "status": "passed",
-          "duration_ms": 1,
+          "duration_ms": 0,
           "integration_trace_count": 1,
           "integration_prompt_count": 1,
           "integration_spawn_count": 1,
@@ -239,12 +239,38 @@
       ],
       "note": "plan→prompt→spawn 烟测链路：验证 PlanDTO 构建 → runtime 评估 → ready task 链接 → SpawnSpec 校验",
       "capability": "smoke"
+    },
+    {
+      "dataset": "betterprompt",
+      "status": "completed",
+      "exit_code": 0,
+      "duration_ms": 1,
+      "metrics": {
+        "total_samples": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "samples": [
+        {
+          "id": "bp3-batch3-append-only-proof-v1",
+          "status": "passed",
+          "duration_ms": 0,
+          "betterprompt_package_id": "betterprompt-v1-1780068695460",
+          "betterprompt_skills": [
+            "default-general"
+          ],
+          "betterprompt_qc_pass": true,
+          "betterprompt_fallback": false
+        }
+      ],
+      "capability": "full"
     }
   ],
   "totals": {
-    "stages": 6,
-    "total_samples": 14,
-    "passed": 14,
+    "stages": 7,
+    "total_samples": 15,
+    "passed": 15,
     "failed": 0,
     "skipped": 0
   },

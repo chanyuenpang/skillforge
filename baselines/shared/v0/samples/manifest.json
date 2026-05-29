@@ -33,6 +33,11 @@
       "dataset": "integration",
       "path": "integration.batch2.jsonl",
       "count": 2
+    },
+    {
+      "dataset": "betterprompt",
+      "path": "betterprompt.batch3.jsonl",
+      "count": 1
     }
   ],
   "record_schema": {

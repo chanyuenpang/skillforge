@@ -289,6 +289,9 @@ function matchRoute(method, pathname) {
   // GET /api/run-center/summary
   if (method === 'GET' && pathname === '/api/run-center/summary') return 'runCenterSummary';
 
+  // GET /api/baseline/shared-v0/summary
+  if (method === 'GET' && pathname === '/api/baseline/shared-v0/summary') return 'sharedBaselineV0Summary';
+
   // POST /api/run-center/runs
   if (method === 'POST' && pathname === '/api/run-center/runs') return 'runCenterRunCreate';
 
@@ -697,6 +700,53 @@ function buildHistoryItems(filters = {}) {
   }
 
   return filtered;
+}
+
+function buildSharedBaselineV0Summary() {
+  const summaryPath = resolve(__dirname, 'baselines', 'shared', 'v0', 'results', 'summary.json');
+  if (!existsSync(summaryPath)) {
+    const err = new Error('Shared baseline v0 summary not found');
+    err.code = 'NOT_FOUND';
+    err.status = 404;
+    err.details = { path: 'baselines/shared/v0/results/summary.json' };
+    throw err;
+  }
+
+  let raw;
+  try {
+    raw = JSON.parse(readFileSync(summaryPath, 'utf8'));
+  } catch {
+    const err = new Error('Invalid shared baseline v0 summary.json');
+    err.code = 'INVALID_SUMMARY_JSON';
+    err.status = 500;
+    err.details = { path: 'baselines/shared/v0/results/summary.json' };
+    throw err;
+  }
+
+  const total = Number(raw?.total ?? raw?.totalCases ?? raw?.totalCount ?? 0) || 0;
+  const passed = Number(raw?.passed ?? raw?.pass ?? raw?.passedCount ?? 0) || 0;
+  const failed = Number(raw?.failed ?? raw?.fail ?? raw?.failedCount ?? 0) || 0;
+  const skipped = Number(raw?.skipped ?? raw?.skip ?? raw?.skippedCount ?? 0) || 0;
+  const lastRunAt = raw?.lastRunAt || raw?.updatedAt || raw?.timestamp || null;
+  const status = String(raw?.status || (failed > 0 ? 'failed' : 'passed'));
+  const stages = Array.isArray(raw?.stages)
+    ? raw.stages
+    : (raw?.stageSummary && typeof raw.stageSummary === 'object'
+      ? Object.entries(raw.stageSummary).map(([name, value]) => ({ name, ...(typeof value === 'object' ? value : { count: value }) }))
+      : []);
+
+  return {
+    scope: 'shared-v0',
+    summaryPath: 'baselines/shared/v0/results/summary.json',
+    total,
+    passed,
+    failed,
+    skipped,
+    lastRunAt,
+    status,
+    stages,
+    raw,
+  };
 }
 
 function buildRunsSummary() {
@@ -2461,6 +2511,10 @@ const server = http.createServer(async (req, res) => {
 
       if (matched === 'runCenterSummary') {
         return json(res, apiSuccess(buildRunsSummary()), 200, requestId);
+      }
+
+      if (matched === 'sharedBaselineV0Summary') {
+        return json(res, apiSuccess(buildSharedBaselineV0Summary()), 200, requestId);
       }
 
       if (matched === 'runCenterRunCreate') {

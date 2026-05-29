@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchRunSummary, fetchRunList } from '../api';
+import { fetchRunSummary, fetchRunList, fetchBaselineSummary } from '../api';
 
 const STATUS_COLORS = {
   success: '#16a34a',
@@ -173,6 +173,7 @@ export default function RunCenterOverview() {
 
   const [recentRuns, setRecentRuns] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
+  const [baselineSummary, setBaselineSummary] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,6 +188,15 @@ export default function RunCenterOverview() {
         if (!cancelled) setError(err?.message || '加载失败');
       } finally {
         if (!cancelled) setLoading(false);
+      }
+    }
+
+    async function loadBaseline() {
+      try {
+        const data = await fetchBaselineSummary();
+        if (!cancelled) setBaselineSummary(data || null);
+      } catch {
+        if (!cancelled) setBaselineSummary(null);
       }
     }
 
@@ -220,6 +230,7 @@ export default function RunCenterOverview() {
     }
 
     loadSummary();
+    loadBaseline();
     loadRecent();
     return () => {
       cancelled = true;
@@ -278,6 +289,56 @@ export default function RunCenterOverview() {
           />
         ))}
       </section>
+
+      {/* ── Shared Baseline v0 */}
+      {!hasError && (
+        <section className="card">
+          <div className="card-header">
+            <h2>🧪 Shared Baseline v0</h2>
+            <span className="card-header-meta">回归健康度（首版）</span>
+          </div>
+          <div className="card-body">
+            {!baselineSummary ? (
+              <p className="welcome-hint" style={{ margin: 0 }}>暂无 baseline 摘要数据</p>
+            ) : (
+              <div style={{ display: 'grid', gap: 'var(--space-sm)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'var(--space-sm)' }}>
+                  <StatCard label="总样本数" value={baselineSummary.total ?? 0} icon="🧩" />
+                  <StatCard label="通过" value={baselineSummary.passed ?? 0} variant="success" icon="✅" />
+                  <StatCard label="失败" value={baselineSummary.failed ?? 0} variant="danger" icon="❌" />
+                  <StatCard label="跳过" value={baselineSummary.skipped ?? 0} icon="⏭️" />
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'grid', gap: 4 }}>
+                  <div>整体状态：<strong style={{ color: 'var(--text-primary)' }}>{String(baselineSummary.status || '-')}</strong></div>
+                  <div>最后运行时间：{formatDateTime(baselineSummary.lastRunAt)}</div>
+                </div>
+                {Array.isArray(baselineSummary.stages) && baselineSummary.stages.length > 0 && (
+                  <div>
+                    <div className="welcome-hint" style={{ marginBottom: 6 }}>阶段明细</div>
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      {baselineSummary.stages.map((stage, idx) => {
+                        const name = stage?.name || stage?.stage || `stage-${idx + 1}`;
+                        const p = Number(stage?.passed ?? stage?.pass ?? 0) || 0;
+                        const f = Number(stage?.failed ?? stage?.fail ?? 0) || 0;
+                        const s = Number(stage?.skipped ?? stage?.skip ?? 0) || 0;
+                        const t = Number(stage?.total ?? stage?.count ?? (p + f + s)) || 0;
+                        return (
+                          <div key={`${name}-${idx}`} className="queue-table" style={{ padding: '8px 10px', borderRadius: 8 }}>
+                            <strong>{name}</strong>
+                            <span style={{ marginLeft: 8, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              total {t} · pass {p} · fail {f} · skip {s}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── Error ── */}
       {hasError && (
