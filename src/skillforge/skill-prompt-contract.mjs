@@ -85,7 +85,7 @@ const SKILL_REGISTRY = Object.freeze({
     requires: Object.freeze(["coding"]),
     isDefault: false,
     promptTemplate: "Act as a debugging agent. Trace errors, analyze logs, identify root causes, and propose fixes.",
-    tags: Object.freeze(["debug", "error", "bug", "trace", "diagnose", "troubleshoot"]),
+    tags: Object.freeze(["debug", "error", "bug", "trace", "diagnose", "troubleshoot", "research-analysis", "root-cause-analysis", "error-explanation"]),
   }),
 
   reviewing: Object.freeze({
@@ -124,7 +124,7 @@ const SKILL_REGISTRY = Object.freeze({
     requires: Object.freeze([]),
     isDefault: false,
     promptTemplate: "Act as a research agent. Search, gather, and organize information from available sources.",
-    tags: Object.freeze(["search", "find", "research", "lookup", "query"]),
+    tags: Object.freeze(["search", "find", "research", "lookup", "query", "research-analysis", "read-only-analysis", "investigation"]),
   }),
 
   "default-general": Object.freeze({

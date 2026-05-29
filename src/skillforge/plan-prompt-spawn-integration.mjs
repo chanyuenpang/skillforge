@@ -22,7 +22,7 @@
 import { resolveSkills } from './skill-resolver.mjs';
 import { assemblePrompt } from './prompt-assembler.mjs';
 import { createSpawnSpec, createSpawnTrace } from './spawn-spec-contract.mjs';
-import { buildBetterPromptPackage } from './betterprompt-builder.mjs';
+import { buildBetterPromptV1 } from './betterprompt-builder.mjs';
 import { evaluateBetterPromptPackage } from './betterprompt-qc.mjs';
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -261,7 +261,7 @@ function generateSpawnSpecForTask(task, promptText, traceInfo = {}) {
  * @param {object} [params.promptOpts]    — optional prompt assembler options
  * @returns {object} { version, traceRecords, promptResults, spawnSpecs }
  */
-export function linkReadyTasks({
+export async function linkReadyTasks({
   planDTO = {},
   runtimeOutput = null,
   traceInfo = {},
@@ -318,7 +318,7 @@ export function linkReadyTasks({
 
     // 2. betterPrompt attempt (with fallback)
     const betterPromptInput = buildBetterPromptInput(task, resolvedSkills);
-    const betterPromptPackage = await buildBetterPromptPackage(betterPromptInput);
+    const betterPromptPackage = await buildBetterPromptV1(betterPromptInput);
     const betterPromptQc = evaluateBetterPromptPackage(betterPromptPackage);
     const betterPromptAccepted = betterPromptQc.pass === true;
     const finalPromptText = betterPromptAccepted
@@ -386,7 +386,7 @@ export function linkReadyTasks({
  * Convenience wrapper that runs the full plan→prompt→spawn chain for a single
  * task, without requiring a full PlanRuntimeOutput.
  */
-export function linkSingleTask(task = {}, planDTO = {}, opts = {}) {
+export async function linkSingleTask(task = {}, planDTO = {}, opts = {}) {
   const fakeRuntimeOutput = {
     readyTaskIds: [task.id],
   };

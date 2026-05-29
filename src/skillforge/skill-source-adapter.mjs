@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { extractSkillSemantic } from './llm-semantic-extractor.mjs';
 
 async function* walk(dir) {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -43,12 +44,19 @@ export async function discoverSkills(sourceDir, sourceId) {
     const relativePathRaw = path.relative(root, skillDir);
     const relativePath = relativePathRaw === '' ? '.' : relativePathRaw.split(path.sep).join('/');
 
+    const semantic = await extractSkillSemantic({
+      content,
+      skillName: path.basename(skillDir),
+      sourcePath: filePath
+    });
+
     skills.push({
       skillId: `${sourceId}:${relativePath}`,
       name: path.basename(skillDir),
       description: extractDescription(content),
       entryPath: filePath,
-      hash: createHash('sha256').update(content).digest('hex')
+      hash: createHash('sha256').update(content).digest('hex'),
+      semantic
     });
   }
 

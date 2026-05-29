@@ -20,10 +20,21 @@ function statusText(status) {
   const value = String(status || '').toLowerCase();
   if (!value) return 'unknown';
   if (['success', 'succeeded', 'done', 'completed'].includes(value)) return 'success';
-  if (['failed', 'error', 'failure'].includes(value)) return 'failed';
+  if (['failed', 'error', 'failure', 'blocked'].includes(value)) return 'failed';
   if (['running', 'processing'].includes(value)) return 'running';
   if (['pending', 'queued', 'created'].includes(value)) return 'pending';
   return value;
+}
+
+function hasNoRawPrimaryEvidence(item) {
+  const rawAvailability = item?.rawTextAvailability;
+  if (rawAvailability?.hasAnyRawText === false) return true;
+
+  const inputUnavailable = rawAvailability?.input?.available === false;
+  const outputUnavailable = rawAvailability?.output?.available === false;
+  if (inputUnavailable && outputUnavailable) return true;
+
+  return false;
 }
 
 function getRunId(item) {
@@ -207,15 +218,22 @@ export default function RunCenterList() {
     const normalized = rawItems.map((item) => {
       const normalizedStatus = statusText(item?.status || item?.result || item?.state);
       const source = getSource(item);
+      const blockedByNoRawEvidence = hasNoRawPrimaryEvidence(item);
+      const displayStatus = blockedByNoRawEvidence ? 'failed' : normalizedStatus;
       return {
         ...item,
         _runId: getRunId(item),
-        _status: normalizedStatus,
+        _status: displayStatus,
+        _blockedByNoRawEvidence: blockedByNoRawEvidence,
         _source: source,
         _startedAt: getTimeValue(item),
         _duration: Number(item?.durationMs ?? item?.costMs ?? item?.elapsedMs ?? -1),
-        _humanTitle: getHumanTitle(item, normalizedStatus, source),
-        _humanSubtitle: getHumanSubtitle(item, normalizedStatus, source),
+        _humanTitle: blockedByNoRawEvidence
+          ? (getPrimarySummary(item) || `运行被阻断：缺 raw 主证据（来源：${source}）`)
+          : getHumanTitle(item, normalizedStatus, source),
+        _humanSubtitle: blockedByNoRawEvidence
+          ? (item?.rawTextAvailability?.message || '验收不合格：缺少可审计的输入/输出 raw 主证据')
+          : getHumanSubtitle(item, normalizedStatus, source),
       };
     });
 
@@ -396,7 +414,7 @@ export default function RunCenterList() {
                               : 'badge-idle'
                           }`}
                         >
-                          {item._status}
+                          {item._blockedByNoRawEvidence ? 'failed/blocked' : item._status}
                         </span>
                       </td>
                       <td className="subtle" style={{ lineHeight: 1.4 }}>

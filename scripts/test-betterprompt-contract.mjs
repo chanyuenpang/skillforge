@@ -52,6 +52,30 @@ const sampleOutput = {
     escalation_when: ['输入不合法', '生成失败'],
   },
   metadata: { created_at: '2026-05-27T14:54:00Z', author: 'betterPrompt' },
+  delivery_package: {
+    finalGuidance: ['优先参考已解析技能', '校验输入再生成输出'],
+    finalPackage: {
+      deliveryType: 'seven-section-template',
+      objective: '落地 betterPrompt 输入输出契约，供后续生成链复用',
+      executionSequence: ['先校验输入', '再生成输出'],
+    },
+    selfCheck: {
+      pass: true,
+      summary: 'score=100',
+      checks: ['seven_sections:pass'],
+      issues: [],
+    },
+    assumptions: ['输入主体是 prompt/goal_hint/skillAssets'],
+    applicableScope: ['轻量任务骨架生成', '子代理 prompt 收敛'],
+    nonApplicableCases: ['UI 扩展', '审批流'],
+    failureModes: ['输入太短', '约束缺失'],
+    correctionActions: ['补充 prompt 原文', '补充 goal_hint'],
+    expectedImprovement: {
+      baseline: '旧流程更重、拆解更散',
+      now: '更短链、更可执行',
+      delta: ['更少治理层', '更高可追踪性'],
+    },
+  },
 };
 
 // --- VALID ---

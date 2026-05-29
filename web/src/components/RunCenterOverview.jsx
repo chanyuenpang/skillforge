@@ -49,10 +49,21 @@ function statusText(status) {
   const value = String(status || '').toLowerCase();
   if (!value) return 'unknown';
   if (['success', 'succeeded', 'done', 'completed'].includes(value)) return 'success';
-  if (['failed', 'error', 'failure'].includes(value)) return 'failed';
+  if (['failed', 'error', 'failure', 'blocked'].includes(value)) return 'failed';
   if (['running', 'processing'].includes(value)) return 'running';
   if (['pending', 'queued', 'created'].includes(value)) return 'pending';
   return value;
+}
+
+function hasNoRawPrimaryEvidence(item) {
+  const rawAvailability = item?.rawTextAvailability;
+  if (rawAvailability?.hasAnyRawText === false) return true;
+
+  const inputUnavailable = rawAvailability?.input?.available === false;
+  const outputUnavailable = rawAvailability?.output?.available === false;
+  if (inputUnavailable && outputUnavailable) return true;
+
+  return false;
 }
 
 function getRunId(item) {
@@ -81,6 +92,10 @@ function getHumanTitle(item) {
   const secondary = getSecondarySummary(item);
   const source = getSource(item);
 
+  if (hasNoRawPrimaryEvidence(item)) {
+    return primary || `运行被阻断：缺 raw 主证据（来源：${source}）`;
+  }
+
   if (status === 'failed') {
     return primary || `尝试执行来自 ${source} 的任务，但运行失败`;
   }
@@ -101,6 +116,10 @@ function getHumanSubtitle(item) {
   const status = statusText(item?.status || item?.result || item?.state);
   const secondary = getSecondarySummary(item);
   const source = getSource(item);
+
+  if (hasNoRawPrimaryEvidence(item)) {
+    return item?.rawTextAvailability?.message || '验收不合格：缺少可审计的输入/输出 raw 主证据';
+  }
 
   if (status === 'failed') {
     return secondary || item?.errorMessage || item?.error || `失败原因暂未提供，来源：${source}`;
@@ -177,16 +196,20 @@ export default function RunCenterOverview() {
         const data = await fetchRunList();
         const raw = data?.items || data?.list || [];
         if (!cancelled) {
-          const normalized = raw.slice(0, 5).map((item) => ({
+          const normalized = raw.slice(0, 5).map((item) => {
+            const blockedByNoRawEvidence = hasNoRawPrimaryEvidence(item);
+            return {
             ...item,
             _runId: getRunId(item),
-            _status: statusText(item?.status || item?.result || item?.state),
+            _status: blockedByNoRawEvidence ? 'failed' : statusText(item?.status || item?.result || item?.state),
+            _blockedByNoRawEvidence: blockedByNoRawEvidence,
             _source: getSource(item),
             _startedAt: getTimeValue(item),
             _duration: Number(item?.durationMs ?? item?.costMs ?? item?.elapsedMs ?? -1),
             _humanTitle: getHumanTitle(item),
             _humanSubtitle: getHumanSubtitle(item),
-          }));
+          };
+          });
           setRecentRuns(normalized);
         }
       } catch {
@@ -343,7 +366,7 @@ export default function RunCenterOverview() {
                                     : 'var(--text-muted)',
                               }}
                             >
-                              {item._status}
+                              {item._blockedByNoRawEvidence ? 'failed/blocked' : item._status}
                             </span>
                           </td>
                           <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>

@@ -267,7 +267,6 @@ function buildOpenaiAdapterResult({
   error,
   executionTime,
   config,
-  transcriptCaptured = false,
 }) {
   const preflightBlocked = preflightReport?.status !== "passed";
 
@@ -344,7 +343,7 @@ function buildOpenaiAdapterResult({
       mode: "openai",
       evidence: "provider-backed-executed",
       providerCall: true,
-      transcriptCaptured,
+      transcriptCaptured: false,
       sideEffectsPerformed: false,
       providerEvidenceAvailable: true,
       persistedEvidenceAvailable: false,
@@ -361,7 +360,7 @@ function buildOpenaiAdapterResult({
       preflightBlocked: false,
       providerEvidenceAvailable: true,
       transcriptAvailable: false, // transcriptRef not wired yet; capture is store-only
-      transcriptCaptured,
+      transcriptCaptured: false,
       transcriptPersistence: false,
     },
     execution: {
@@ -398,10 +397,9 @@ function buildOpenaiAdapterResult({
       executionId: `openai:${adaptedData?.id ?? Date.now()}`,
       providerRunId: adaptedData?.id ?? null,
       providerStatus: "completed",
-      transcriptCaptured,
-      note: transcriptCaptured
-        ? "OpenAI provider adapter real execution; transcript captured to persistent store"
-        : "OpenAI provider adapter real execution; transcript capture not yet implemented",
+      transcriptCaptured: false,
+      note:
+        "OpenAI provider adapter real execution; transcript persistence is delegated to orchestrator/main execution chain",
     },
     pendingCapabilities: [
       "transcript-capture",
@@ -485,42 +483,6 @@ export async function invokeOpenaiAdapter({
   // Adapt response
   const adaptedData = adaptChatCompletionResponse(result.data, config);
 
-  // ── Transcript capture ──────────────────────────────
-  // Persist the provider execution result as a transcript record,
-  // making it available for UI and audit consumption without re-execution.
-  let transcriptCaptured = false;
-  try {
-    const { save: saveTranscript, buildTranscriptRecord } = await import('./transcript-store.mjs');
-    const fixtureId = providerAdapterContract?.input?.fixture?.fixtureId ?? null;
-    const transcriptRecord = buildTranscriptRecord({
-      caseId,
-      fixtureId,
-      provider: 'openai',
-      model: config.model,
-      input: caseRecord?.input ?? null,
-      outputContent: adaptedData.content,
-      outputRole: adaptedData.role,
-      finishReason: adaptedData.finishReason,
-      usage: adaptedData.usage,
-      executionTimeMs: executionTime,
-      providerRunId: adaptedData.id,
-      status: 'completed',
-      rawResponse: {
-        handle: `openai:${adaptedData.id ?? 'unknown'}`,
-        summary: {
-          model: adaptedData.model ?? config.model,
-          totalTokens: adaptedData.usage?.totalTokens ?? null,
-          finishReason: adaptedData.finishReason,
-        },
-      },
-    });
-    const saveResult = saveTranscript(transcriptRecord);
-    transcriptCaptured = saveResult.ok;
-  } catch (transcriptCaptureError) {
-    // Transcript capture is non-fatal: the real provider call already succeeded
-    console.error('[transcript-store] capture failed (non-fatal):', transcriptCaptureError.message);
-  }
-
   return buildOpenaiAdapterResult({
     caseId,
     providerAdapterContract,
@@ -529,7 +491,6 @@ export async function invokeOpenaiAdapter({
     adaptedData,
     executionTime,
     config,
-    transcriptCaptured,
   });
 }
 

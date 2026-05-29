@@ -55,6 +55,9 @@ function validateSkill(rawSkill) {
   if (!rawSkill.hash || typeof rawSkill.hash !== 'string') {
     errors.push({ code: 'INVALID_HASH', message: 'hash is missing or invalid' });
   }
+  if (!rawSkill.semantic || typeof rawSkill.semantic !== 'object') {
+    errors.push({ code: 'INVALID_SEMANTIC', message: 'semantic is missing or invalid' });
+  }
 
   return errors;
 }
@@ -71,7 +74,8 @@ function toRecord(rawSkill, sourceId) {
     fields: {
       name: rawSkill.name || '',
       description: rawSkill.description || '',
-      hash: rawSkill.hash || ''
+      hash: rawSkill.hash || '',
+      semantic: rawSkill.semantic || null
     },
     errors: validationErrors
   };

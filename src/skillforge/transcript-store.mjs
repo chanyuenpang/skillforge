@@ -7,7 +7,7 @@
  * Follows the same pattern as review-store.mjs / prep-store.mjs / registry-store.mjs:
  *   - ~/.skillforge/transcript-store.jsonl
  *   - Append-only JSON Lines
- *   - loadById returns the latest entry for a given caseId
+ *   - loadById returns the latest entry for a given executionId
  *   - list returns all persisted entries (append-only timeline)
  */
 
@@ -53,7 +53,8 @@ function readAllLines() {
  *   - transcriptId (string, non-empty)
  *   - provider (string)
  *   - model (string)
- *   - caseId (string)
+ *   - executionId (string, non-empty)
+ *   - caseId (string, optional/deprecated)
  *   - timestamp (ISO string)
  *   - status ("completed" | "error")
  *
@@ -75,8 +76,12 @@ export function validateTranscriptRecord(record) {
     errors.push({ field: "provider", message: "provider is required and must be a non-empty string" });
   }
 
-  if (!record.caseId || typeof record.caseId !== "string") {
-    errors.push({ field: "caseId", message: "caseId is required" });
+  if (typeof record.executionId !== "string" || record.executionId.trim().length === 0) {
+    errors.push({ field: "executionId", message: "executionId is required and must be a non-empty string" });
+  }
+
+  if (record.caseId != null && typeof record.caseId !== "string") {
+    errors.push({ field: "caseId", message: "caseId is optional/deprecated but must be a string when provided" });
   }
 
   if (!record.timestamp || typeof record.timestamp !== "string") {
@@ -96,7 +101,8 @@ export function validateTranscriptRecord(record) {
  * Build a transcript record from raw provider execution data.
  *
  * @param {object} options
- * @param {string} options.caseId
+ * @param {string} options.executionId - run/execution anchor id (required)
+ * @param {string} [options.caseId] - optional/deprecated compatibility id
  * @param {string} [options.fixtureId]
  * @param {string} [options.executionId] - run/execution anchor id
  * @param {string} options.provider - e.g. "openai"
@@ -113,9 +119,9 @@ export function validateTranscriptRecord(record) {
  * @returns {object} A valid transcript record
  */
 export function buildTranscriptRecord({
-  caseId,
+  executionId,
+  caseId = null,
   fixtureId = null,
-  executionId = null,
   provider = "openai",
   model = "unknown",
   input = null,
@@ -132,16 +138,16 @@ export function buildTranscriptRecord({
   const transcriptId =
     providerRunId && typeof providerRunId === "string" && providerRunId.trim().length > 0
       ? `${provider}:${providerRunId}`
-      : `${provider}:${Date.now()}:${caseId}`;
+      : `${provider}:${Date.now()}:${executionId}`;
 
   return {
     transcriptId,
     storeVersion: TRANSCRIPT_STORE_VERSION,
     provider,
     model,
+    executionId,
     caseId,
     fixtureId,
-    executionId,
     timestamp: new Date().toISOString(),
     executionTimeMs,
     status,
@@ -197,19 +203,19 @@ export function save(record) {
 }
 
 /**
- * Load the latest saved transcript record for a given caseId.
+ * Load the latest saved transcript record for a given executionId.
  *
  * Scans all persisted lines and returns the last entry whose
- * caseId matches the given id.
+ * executionId matches the given id.
  *
- * @param {string} id - The caseId to look up.
+ * @param {string} id - The executionId to look up.
  * @returns {object|null} The matching transcript record, or null if not found.
  */
 export function loadById(id) {
   const entries = readAllLines();
   let found = null;
   for (const entry of entries) {
-    if (entry.caseId === id) {
+    if (entry.executionId === id) {
       found = entry;
     }
   }

@@ -42,6 +42,12 @@ export function save(entry) {
   };
 }
 
+export function hasSourceHash(sourceHash) {
+  if (!sourceHash) return false;
+  const entries = readAllLines();
+  return entries.some((entry) => entry?.source_hash === sourceHash);
+}
+
 export function loadById(id) {
   const entries = readAllLines();
   let found = null;
@@ -60,6 +66,29 @@ export function list() {
     seen.set(entry.fixtureId, entry);
   }
   return [...seen.values()];
+}
+
+export function searchByTags(queryTagIds = []) {
+  const tags = Array.isArray(queryTagIds) ? queryTagIds.filter(Boolean) : [];
+  if (tags.length === 0) return [];
+
+  const latest = list();
+  const scored = latest
+    .map((entry) => {
+      const entryTagIds = Array.isArray(entry?.tags)
+        ? entry.tags.map((t) => t?.id).filter(Boolean)
+        : [];
+      const matches = tags.filter((tagId) => entryTagIds.includes(tagId));
+      return {
+        entry,
+        matches,
+        score: matches.length,
+      };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || String(a.entry?.fixtureId || '').localeCompare(String(b.entry?.fixtureId || '')));
+
+  return scored;
 }
 
 export function restoreById(id) {
@@ -103,7 +132,9 @@ export function restoreById(id) {
 
 export default {
   save,
+  hasSourceHash,
   loadById,
   list,
   restoreById,
+  searchByTags,
 };

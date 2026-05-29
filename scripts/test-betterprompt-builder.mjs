@@ -111,7 +111,7 @@ async function runSample(label, input) {
 
   try {
     const result = await buildBetterPromptPackage(input);
-    const { package: pkg, qc_result, _debug } = result;
+    const { package: pkg, qc: qc_result, traces: _debug = {} } = result;
 
     // 1. 输出 schema 校验
     const schemaCheck = validateBetterPromptOutput(pkg);
@@ -123,13 +123,13 @@ async function runSample(label, input) {
     // 2. QC 结果
     console.log(`\n📋 QC 结果: ${qc_result.pass ? '✅ 通过' : '⚠️ 有问题'}`);
     console.log(`   ${qc_result.summary}`);
-    if (qc_result.issues.length > 0) {
+    if ((qc_result.issues || []).length > 0) {
       for (const issue of qc_result.issues) {
         console.log(`   ⚠️ ${issue}`);
       }
     }
-    for (const check of qc_result.checks) {
-      console.log(`   ✓ ${check}`);
+    for (const check of qc_result.checks || []) {
+      console.log(`   ✓ ${check.name}: ${check.pass ? 'pass' : 'fail'}`);
     }
 
     // 3. Selected skills
@@ -140,8 +140,8 @@ async function runSample(label, input) {
 
     // 4. Capability slots
     console.log(`\n🔧 能力槽位:`);
-    console.log(`   must: [${(_debug.slots.must || []).join(', ')}]`);
-    console.log(`   should: [${(_debug.slots.should || []).join(', ')}]`);
+    console.log(`   must: [${(_debug?.slots?.must || []).join(', ')}]`);
+    console.log(`   should: [${(_debug?.slots?.should || []).join(', ')}]`);
 
     // 5. Prompt summary
     console.log(`\n📝 Prompt 摘要:`);

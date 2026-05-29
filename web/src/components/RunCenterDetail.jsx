@@ -144,6 +144,81 @@ function toPreviewString(value) {
   }
 }
 
+function renderDocumentValue(value, path = '') {
+  if (value === null) return <span className="subtle">null</span>;
+  if (value === undefined) return <span className="subtle">undefined</span>;
+
+  if (typeof value === 'string') {
+    return (
+      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6 }}>
+        {value}
+      </div>
+    );
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return <span>{String(value)}</span>;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="subtle">[]</span>;
+    return (
+      <ol style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
+        {value.map((item, idx) => (
+          <li key={`${path}[${idx}]`}>
+            {renderDocumentValue(item, `${path}[${idx}]`)}
+          </li>
+        ))}
+      </ol>
+    );
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value);
+    if (entries.length === 0) return <span className="subtle">{'{}'}</span>;
+    return (
+      <dl className="run-meta-grid" style={{ margin: 0 }}>
+        {entries.map(([k, v]) => (
+          <React.Fragment key={`${path}.${k}`}>
+            <dt>{k}</dt>
+            <dd style={{ margin: 0 }}>{renderDocumentValue(v, `${path}.${k}`)}</dd>
+          </React.Fragment>
+        ))}
+      </dl>
+    );
+  }
+
+  return <span>{String(value)}</span>;
+}
+
+function RawBlock({ title, value }) {
+  const hasValue = value !== undefined && value !== null && value !== '';
+  return (
+    <section className="detail-section">
+      <h3>{title}</h3>
+      {!hasValue ? (
+        <p className="subtle">暂无原文</p>
+      ) : (
+        <pre
+          style={{
+            margin: 0,
+            maxHeight: 420,
+            fontSize: '0.78rem',
+            background: 'var(--bg-muted)',
+            padding: 12,
+            borderRadius: 8,
+            overflow: 'auto',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
+        </pre>
+      )}
+    </section>
+  );
+}
+
 function buildObservability(detail = {}) {
   const inputCandidates = collectByKeys(detail, ['input', 'inputs', 'request', 'payload', 'params', 'args', 'context']);
   const outputCandidates = collectByKeys(detail, ['output', 'outputs', 'result', 'response', 'data', 'returnValue']);
@@ -441,8 +516,20 @@ function HumanSummaryBlock({ icon, label, content, sourceHint, variant = 'defaul
   const [expanded, setExpanded] = useState(false);
   if (!content) return null;
 
-  const needsTrunc = content.length > TRUNCATE_LEN;
-  const display = needsTrunc && !expanded ? content.slice(0, TRUNCATE_LEN) + '…' : content;
+  let normalized = content;
+  if (typeof content === 'string') {
+    const trimmed = content.trim();
+    if (trimmed) {
+      const first = trimmed[0];
+      if (first === '{' || first === '[') {
+        try {
+          normalized = JSON.parse(trimmed);
+        } catch {
+          normalized = content;
+        }
+      }
+    }
+  }
 
   const variantStyle =
     variant === 'failure'
@@ -450,6 +537,81 @@ function HumanSummaryBlock({ icon, label, content, sourceHint, variant = 'defaul
       : variant === 'success'
         ? { borderLeft: '3px solid var(--success, #16a34a)' }
         : {};
+
+  const renderStructured = (value, path = 'root') => {
+    if (value === null || value === undefined || value === '') {
+      return <p className="subtle" style={{ margin: 0 }}>暂无内容</p>;
+    }
+
+    if (typeof value === 'string') {
+      const needsTrunc = value.length > TRUNCATE_LEN;
+      const display = needsTrunc && !expanded ? `${value.slice(0, TRUNCATE_LEN)}…` : value;
+      return (
+        <>
+          <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.65 }}>{display}</p>
+          {needsTrunc ? (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ marginTop: 8, fontSize: '0.72rem', padding: '2px 6px' }}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? '▲ 收起' : '▼ 展开全部'}
+            </button>
+          ) : null}
+        </>
+      );
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return <p style={{ margin: 0 }}>{String(value)}</p>;
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) return <p className="subtle" style={{ margin: 0 }}>暂无条目</p>;
+      return (
+        <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>
+          {value.map((item, idx) => (
+            <li key={`${path}[${idx}]`}>{renderStructured(item, `${path}[${idx}]`)}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (typeof value === 'object') {
+      const entries = Object.entries(value);
+      if (entries.length === 0) return <p className="subtle" style={{ margin: 0 }}>暂无字段</p>;
+
+      const scalar = entries.filter(([, v]) => v === null || ['string', 'number', 'boolean'].includes(typeof v));
+      const compound = entries.filter(([, v]) => v && (typeof v === 'object'));
+
+      return (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {scalar.length > 0 ? (
+            <div>
+              <h5 style={{ margin: '0 0 6px', fontSize: '0.82rem' }}>关键信息</h5>
+              <dl className="run-meta-grid" style={{ margin: 0 }}>
+                {scalar.map(([k, v]) => (
+                  <React.Fragment key={`${path}.${k}`}>
+                    <dt>{k}</dt>
+                    <dd style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{v == null ? 'null' : String(v)}</dd>
+                  </React.Fragment>
+                ))}
+              </dl>
+            </div>
+          ) : null}
+          {compound.map(([k, v]) => (
+            <div key={`${path}.${k}`}>
+              <h5 style={{ margin: '0 0 6px', fontSize: '0.82rem' }}>{k}</h5>
+              <div style={{ paddingLeft: 8, borderLeft: '2px solid var(--border)' }}>{renderStructured(v, `${path}.${k}`)}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return <p style={{ margin: 0 }}>{String(value)}</p>;
+  };
 
   return (
     <div style={{ marginBottom: 14 }}>
@@ -463,38 +625,49 @@ function HumanSummaryBlock({ icon, label, content, sourceHint, variant = 'defaul
           borderRadius: 8,
           fontSize: '0.89rem',
           lineHeight: 1.65,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          maxHeight: expanded ? 'none' : undefined,
-          overflow: 'hidden',
           fontFamily: 'var(--font-sans)',
         }}
       >
-        {display}
+        {renderStructured(normalized)}
       </div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 4, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
         {sourceHint && <span>来源: {sourceHint}</span>}
-        {needsTrunc && (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            style={{ fontSize: '0.72rem', padding: '2px 6px' }}
-            onClick={() => setExpanded((v) => !v)}
-          >
-            {expanded ? '▲ 收起' : '▼ 展开全部'}
-          </button>
-        )}
       </div>
     </div>
   );
 }
 
-function MetaBar({ runId, status, workflowName }) {
+function MetaBar({ runId, status, workflowName, forceBlocked }) {
   const items = [];
   if (runId) items.push(<span key="id">运行编号: <code style={{ fontSize: '0.8rem' }}>{runId}</code></span>);
-  if (status) {
-    const color = status === 'failed' || status === 'error' ? 'var(--danger)' : status === 'running' ? '#2563eb' : 'var(--text-muted)';
-    items.push(<span key="st" style={{ color }}>状态: {status}</span>);
+  if (status || forceBlocked) {
+    const normalized = String(status || '').toLowerCase();
+    const blockedVisual = forceBlocked || normalized === 'failed' || normalized === 'error';
+    const displayStatus = forceBlocked ? 'failed/blocked（缺 raw 主证据）' : status;
+    const badgeStyle = blockedVisual
+      ? {
+          color: '#ffffff',
+          background: '#dc2626',
+          border: '1px solid #b91c1c',
+          padding: '2px 8px',
+          borderRadius: 999,
+          fontWeight: 700,
+          letterSpacing: '0.01em',
+        }
+      : {
+          color: normalized === 'running' ? '#1d4ed8' : 'var(--text-muted)',
+          background: normalized === 'running' ? 'rgba(37,99,235,0.12)' : 'transparent',
+          border: normalized === 'running' ? '1px solid rgba(37,99,235,0.25)' : 'none',
+          padding: normalized === 'running' ? '2px 8px' : 0,
+          borderRadius: normalized === 'running' ? 999 : 0,
+          fontWeight: normalized === 'running' ? 600 : 400,
+        };
+    items.push(
+      <span key="st" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        状态:
+        <span style={badgeStyle}>{displayStatus}</span>
+      </span>,
+    );
   }
   if (workflowName) items.push(<span key="wf" style={{ color: 'var(--text-muted)' }}>{workflowName}</span>);
   if (items.length === 0) return null;
@@ -603,6 +776,7 @@ export default function RunCenterDetail() {
   const inputRawHint = rawAvailability?.inputHint || rawAvailability?.input?.hint || null;
   const outputRawHint = rawAvailability?.outputHint || rawAvailability?.output?.hint || null;
   const isFailure = humanOutput?.category === 'failure' || detail?.status === 'failed' || detail?.status === 'error';
+  const hardFailNoRawEvidence = !!detail && rawAvailability?.hasAnyRawText === false;
 
   const metaRows = useMemo(() => {
     if (!detail) return [];
@@ -671,15 +845,40 @@ export default function RunCenterDetail() {
 
           {!loading && !error && !notFound && hasRenderableDetail && (
             <>
+              {hardFailNoRawEvidence ? (
+                <div
+                  role="alert"
+                  style={{
+                    marginBottom: 14,
+                    padding: '12px 14px',
+                    borderRadius: 8,
+                    background: 'linear-gradient(135deg, rgba(220,38,38,0.16) 0%, rgba(185,28,28,0.1) 100%)',
+                    border: '1px solid #b91c1c',
+                    borderLeft: '4px solid #991b1b',
+                    color: '#7f1d1d',
+                  }}
+                >
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: 4 }}>⛔ 验收不合格：缺少 raw 主证据</div>
+                  <div style={{ fontSize: '0.86rem', lineHeight: 1.6 }}>
+                    当前运行未保存可审计的输入/输出原文（raw 主证据），仅有摘要或次级记录。
+                    该记录不满足验收可读性要求，状态按 <b>failed/blocked</b> 处理。
+                    {rawAvailabilityMessage ? <span>{`（${rawAvailabilityMessage}）`}</span> : null}
+                  </div>
+                </div>
+              ) : null}
+
               {/* 输入 — 这次运行在做什么 */}
               {!rawAvailability?.hasAnyRawText ? (
                 <>
                   <HumanSummaryBlock
                     icon="📥"
-                    label="这次运行在做什么"
-                    content={[`当前记录未保存原文，仅展示摘要`, inputRawHint].filter(Boolean).join('\n')}
+                    label="输入主证据缺失（硬失败原因）"
+                    content={[
+                      '❌ 当前记录未保存输入 raw 原文，缺少可审计主证据。',
+                      inputRawHint,
+                    ].filter(Boolean).join('\n')}
                     sourceHint={rawAvailability?.message || 'rawTextAvailability'}
-                    variant="default"
+                    variant="failure"
                   />
                   {humanInput?.content ? (
                     <HumanSummaryBlock
@@ -692,11 +891,14 @@ export default function RunCenterDetail() {
                   ) : null}
 
                   <HumanSummaryBlock
-                    icon={isFailure ? '❌' : '📤'}
-                    label={isFailure ? '为什么失败' : '这次运行产出了什么'}
-                    content={[`当前记录未保存原文，仅展示摘要`, outputRawHint].filter(Boolean).join('\n')}
+                    icon="❌"
+                    label="输出主证据缺失（硬失败原因）"
+                    content={[
+                      '❌ 当前记录未保存输出 raw 原文，缺少可审计主证据。',
+                      outputRawHint,
+                    ].filter(Boolean).join('\n')}
                     sourceHint={rawAvailability?.message || 'rawTextAvailability'}
-                    variant={isFailure ? 'failure' : 'default'}
+                    variant="failure"
                   />
                   {humanOutput?.content ? (
                     <HumanSummaryBlock
@@ -1047,6 +1249,7 @@ export default function RunCenterDetail() {
                 runId={runId}
                 status={detail?.status}
                 workflowName={detail?.workflowName}
+                forceBlocked={hardFailNoRawEvidence}
               />
             </>
           )}
@@ -1058,6 +1261,20 @@ export default function RunCenterDetail() {
       {/* ================================================================ */}
       {!loading && !error && !notFound && hasRenderableDetail && (
         <>
+          <section className="detail-section">
+            <h3>📥 人类语言版 input</h3>
+            {detail?.input !== undefined ? renderDocumentValue(detail.input, 'input') : (humanInput?.content ? renderDocumentValue(humanInput.content, 'humanInput.content') : <p className="subtle">暂无 input</p>)}
+          </section>
+
+          <RawBlock title="🧾 raw input" value={detail?.rawInput ?? detail?.input} />
+
+          <section className="detail-section">
+            <h3>📤 人类语言版 output</h3>
+            {detail?.output !== undefined ? renderDocumentValue(detail.output, 'output') : (humanOutput?.content ? renderDocumentValue(humanOutput.content, 'humanOutput.content') : <p className="subtle">暂无 output</p>)}
+          </section>
+
+          <RawBlock title="🧾 raw output" value={detail?.rawOutput ?? detail?.output} />
+
           {/* 元数据 — 机器 ID 等退到次级区域 */}
           <section className="detail-section">
             <h3>📋 运行信息（技术定位）</h3>

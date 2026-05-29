@@ -202,7 +202,54 @@
 4. 再据此拆出实现、验证、回写三类原子任务；
 5. 文档只做跟随式回写，不再代替主线本身。
 
-## ⑫ 追溯附录
+## ⑫ shared baseline v0 主线接入裁决（新增）
+### 1. Decision ID / Date
+- Decision ID：SBV0-MAINLINE-2026-05-29
+- Date：2026-05-29
+
+### 2. Decision Statement
+同意将 `shared baseline v0` 作为 SkillForge 主线中的**正式基线节点**接入后续推进；本次仅确认“Batch 1 最小闭环已真实成立，且可作为后续增强与回归接入的统一输入基线”，**不构成更高阶段自动成立，不构成生产可用或全链路成熟结论**。
+
+### 3. Scope In
+本次纳入负责人签收范围的，仅包括：
+- `baselines/shared/v0/samples/` 样本集与 `manifest.json` 已真实落仓
+- `scripts/run-shared-baseline-v0.mjs` 已可运行
+- `baselines/shared/v0/results/summary.json` 已真实产出
+- Batch 1 当前证据口径为：`betterprompt=full`、`betterplan=full`、`integration=smoke`
+- `package.json` 已具备 `baseline:shared:v0` 命令入口
+- 后续增强项（failure pool、Batch 2/3、nightly/回归接入）将以独立任务推进
+
+### 4. Scope Out
+本次明确**不**签收为既成事实的，包括：
+- 更高阶段自动成立
+- `shared baseline v0` 已等价生产可用
+- 泛化能力已完成验证
+- failure pool 治理与失败样本运营已完成
+- Batch 2 / Batch 3 已完成
+- nightly / 长周期回归已接通
+
+### 5. Evidence Links
+- 实施计划：`.openclaw/.projects/workflow-kit/tasks/skillforge-shared-baseline-v0-实施/plan.json`
+- 结果证据：`baselines/shared/v0/results/summary.json`
+- 事实底座锚点：`.claw/truth/adr/ADR-0114-skillforge-shared-baseline-v0-batch1-minimal-realization.md`
+- 主线裁决锚点：`.claw/truth/adr/ADR-0115-skillforge-shared-baseline-v0-mainline-judgement-and-follow-up-structure.md`
+
+### 6. Impact on Mainline
+- `shared baseline v0` 现在被确认是 `betterPlan / betterPrompt` 质量闭环与后续增强回归的**统一基线节点**
+- 后续所有增强项，应优先以该 baseline 作为对照输入，而不是重新发明独立样本与独立 runner
+- 主线推进语义仍保持“裁决页负责边界、truth 负责事实、ADR 负责结构规则、roadmap 负责推进节奏”
+
+### 7. Follow-ups
+- `failure pool / failures.ndjson` 输出策略独立补齐
+- Batch 2 / Batch 3 作为后续增量样本包独立推进
+- 将 `shared baseline v0` 接入 nightly / 回归流程
+- 在 `.claw/truth/skillforge-阶段状态总表.md` 与 `docs/roadmap.md` 中补一条状态承接句
+
+### 8. Risk / Rollback Note
+- 若后续回归显示 `summary.json` 口径不稳定、stage capability 回退、或样本协议出现破坏性变更，则应回退到“已建立但待补证/待重验”的条件化状态
+- 若增强项与现有 baseline 冲突，应先保全 baseline，再单独处理增强项，不允许反向篡改已成立的 Batch 1 基线叙事
+
+## ⑬ 追溯附录
 - `docs/skillforge-b8-sync-and-close-memo-v1.md`
 - `docs/skillforge-b8-owner-closeout-criteria-v1.md`
 - `docs/skillforge-b8-phase-c-entry-framework-v1.md`
@@ -217,5 +264,56 @@
 - `.claw/truth/adr/ADR-0060-skillforge-b8-second-phase-closeout-and-phase-c-entry-decision.md`
 - `.claw/truth/adr/ADR-0061-skillforge-phase-c-cross-domain-linkage-and-asset-reuse-governance-baseline.md`
 - `.claw/truth/adr/ADR-0062-skillforge-fourth-phase-conditional-entry-and-controlled-capability-unlock.md`
+- `.claw/truth/adr/ADR-0114-skillforge-shared-baseline-v0-batch1-minimal-realization.md`
+- `.claw/truth/adr/ADR-0115-skillforge-shared-baseline-v0-mainline-judgement-and-follow-up-structure.md`
 - `.claw/truth/skillforge-第二阶段增强真相.md`
 - `.claw/truth/skillforge-阶段状态总表.md`
+
+## ⑬ Shared baseline v0 主线裁决补充（Batch 1 基线节点）
+### 决议编号 / 日期
+- Decision ID：SBV0-MAINLINE-2026-05-29
+- Date：2026-05-29
+
+### 决议句
+同意将 **shared baseline v0（Batch 1）** 签收为 SkillForge 主线中的**正式基线节点**，作为后续 `betterPrompt / betterPlan` 质量回归与 integration smoke 校验的统一输入基线；但本次仅确认“基线成立并可作为后续输入”，**不构成更高阶段自动成立，不构成生产可用结论，也不构成泛化能力已验证**。
+
+### Scope In（本次确认范围）
+- `baselines/shared/v0/samples/` 下的 shared baseline v0 Batch 1 样本集与 `manifest.json`
+- `scripts/run-shared-baseline-v0.mjs` 统一 runner
+- `baselines/shared/v0/results/summary.json` 真实运行结果
+- 命令入口 `baseline:shared:v0`
+- 当前已验证能力边界：
+  - `betterprompt = full`
+  - `betterplan = full`
+  - `integration = smoke`
+
+### Scope Out（本次明确不覆盖）
+- 不覆盖 failure pool / `failures.ndjson` 的正式策略完备性
+- 不覆盖 Batch 2 / Batch 3 扩展
+- 不覆盖 nightly / 长周期回归接入
+- 不覆盖生产可用性、规模化稳定性与泛化能力证明
+- 不覆盖更高阶段自动切换或高阶能力默认解锁
+
+### 证据锚点
+- `.claw/truth/adr/ADR-0114-skillforge-shared-baseline-v0-facts-and-batch1-scope.md`
+- `.claw/truth/adr/ADR-0115-skillforge-shared-baseline-v0-mainline-judgement-and-follow-up-structure.md`
+- `/home/yankeeting/.openclaw/.projects/workflow-kit/tasks/skillforge-shared-baseline-v0-实施/plan.json`
+- `baselines/shared/v0/results/summary.json`
+- `scripts/run-shared-baseline-v0.mjs`
+- `package.json`
+
+### 对主线的影响
+- shared baseline v0 现在是 SkillForge 质量闭环主线里的**正式基线节点**。
+- 后续涉及 `betterPrompt / betterPlan` 质量增强、integration smoke 扩展、Batch 2/3 扩容、nightly/回归接入时，都应先引用此基线，再讨论增强项。
+- roadmap / 阶段状态页若做跟随式回写，应表述为“基线节点已成立，增强项独立推进”，不得写成阶段自动升级。
+
+### 后续动作（独立推进，不与本裁决混写）
+1. failure pool / `failures.ndjson` 输出策略补齐
+2. Batch 2 / Batch 3 样本扩展
+3. nightly / 回归流程接入
+4. 视需要把 shared baseline v0 接入更上层产品面 / 运行中心消费链
+
+### 风险 / 回退说明
+- 若后续最小回归出现失败，shared baseline v0 应回退为“已建立但需修复”的基线节点，而不是继续按稳定基线外推。
+- 若后续增强项与当前 Batch 1 基线证据冲突，以 `summary.json` 与 ADR-0114/0115 的事实边界为准重新裁决。
+- 样本通过只证明当前 Batch 1 基线可运行，不自动外推出更广场景泛化成立。

@@ -71,6 +71,14 @@ async function main() {
 
   let failed = false;
 
+  console.log("== validate:min-evaluator:contracts ==");
+  const minEvaluatorContracts = await runNodeScript("scripts/test-min-evaluator-contracts.mjs");
+  if (minEvaluatorContracts.stdout.trim()) process.stdout.write(minEvaluatorContracts.stdout.endsWith("\n") ? minEvaluatorContracts.stdout : `${minEvaluatorContracts.stdout}\n`);
+  if (minEvaluatorContracts.stderr.trim()) process.stderr.write(minEvaluatorContracts.stderr.endsWith("\n") ? minEvaluatorContracts.stderr : `${minEvaluatorContracts.stderr}\n`);
+  if (minEvaluatorContracts.code !== 0) failed = true;
+
+  console.log("");
+
   const fixtures = await runNodeScript("scripts/validate-fixtures.mjs");
   let fixturesReport = null;
   try {

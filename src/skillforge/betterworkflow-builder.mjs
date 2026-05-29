@@ -16,75 +16,80 @@ function slugFromText(text, fallback = "item") {
 }
 
 function buildMilestoneSpecs(input) {
-  const { goal, context, constraints } = input;
+  const { goal, context } = input;
+  const summary = String(goal?.summary || "").trim() || "未命名目标";
+  const deliverable = String(goal?.deliverable || "").trim() || "未明确交付物";
+  const project = String(context?.project || "").trim() || "当前项目";
+  const background = String(context?.background || "").trim() || "无补充背景";
+
   return [
     {
-      key: "align-goal",
-      title: "目标与边界对齐",
-      objective: `将 ${goal.summary} 在 ${context.project} 的约束下收敛为可执行范围`,
+      key: "normalize-input",
+      title: "语义输入规范化",
+      objective: `把 LLM 提炼出的任务语义收敛为 ${project} 可消费的计划骨架`,
       doneCriteria: [
-        `目标交付物已明确：${goal.deliverable}`,
-        `关键背景已吸收：${context.background}`,
-        `硬约束已固化：${constraints.hardRules.join("；") || "无"}`,
+        `任务主题已整理：${summary}`,
+        `目标交付已整理：${deliverable}`,
+        `上下文信息已整理：${background}`,
       ],
       tasks: [
         {
-          title: "提炼目标与交付定义",
-          action: `从 goal.summary / goal.deliverable 产出一段可执行目标说明`,
-          output: "目标说明草案",
-          doneCriteria: ["目标说明包含范围、交付物、验收口径"],
+          title: "整理任务主题",
+          action: "承接 goal.summary，统一成可用于计划骨架的任务标题与描述",
+          output: "规范化任务主题",
+          doneCriteria: ["标题清晰，语义单一，可直接进入计划骨架"],
         },
         {
-          title: "固化背景与约束",
-          action: `整理 context.background 与 constraints.timebox/hardRules 为执行边界`,
-          output: "执行边界清单",
-          doneCriteria: ["边界清单覆盖时间盒与硬规则"],
+          title: "整理目标交付",
+          action: "承接 goal.deliverable，形成适合 plan 骨架的交付物表达",
+          output: "规范化交付物",
+          doneCriteria: ["交付物表达可读、可落地、可验收"],
         },
       ],
     },
     {
-      key: "prototype-build",
-      title: "最小原型生成链实现",
-      objective: `围绕 ${goal.deliverable} 实现可运行的最小里程碑+原子任务生成链`,
+      key: "compose-plan",
+      title: "计划骨架封装",
+      objective: `围绕 ${summary} 生成更好读、更好执行的 plan 骨架`,
       doneCriteria: [
-        "核心 builder 可以从合法输入生成 milestones 与 atomicTasks",
-        "生成结果满足 betterWorkflow output contract",
+        "输出保持 milestones 与 atomicTasks 的结构",
+        "里程碑是对语义结果的规范封装，不做程序化语义推导",
       ],
       tasks: [
         {
-          title: "实现 builder 主流程",
-          action: "实现 buildBetterWorkflow(input)，完成输入校验、结构生成、输出校验",
-          output: "可运行 builder 模块",
-          doneCriteria: ["主流程包含双向校验并返回结构化输出"],
+          title: "封装里程碑结构",
+          action: "基于规范化后的语义结果生成里程碑标题、目标与验收口径",
+          output: "里程碑骨架",
+          doneCriteria: ["里程碑结构完整且便于后续执行"],
         },
         {
-          title: "实现最小拆解策略",
-          action: "按 milestone -> atomic task 的固定模板进行 MVP 拆解",
-          output: "最小拆解策略逻辑",
-          doneCriteria: ["每个里程碑包含可追踪 atomicTaskIds 且任务依赖可解析"],
+          title: "拆分原子任务结构",
+          action: "把每个里程碑封装为若干原子任务，保留最小依赖关系",
+          output: "原子任务骨架",
+          doneCriteria: ["原子任务可串联，依赖关系清晰"],
         },
       ],
     },
     {
-      key: "sample-verify",
-      title: "真实样本验证",
-      objective: `使用 SkillForge 主计划相关样本验证 ${goal.summary} 的可运行性`,
+      key: "output-polish",
+      title: "输出整理与校验",
+      objective: `把 plan 骨架整理成稳定输出，方便直接进入后续 workflow`,
       doneCriteria: [
-        "验证脚本可执行且输出生成结果",
-        "样本输出通过 contract 校验",
+        "输出通过 contract 校验",
+        "结构稳定、字段齐全、表达一致",
       ],
       tasks: [
         {
-          title: "编写最小验证脚本",
-          action: "新增 scripts/test-betterworkflow-builder.mjs 并调用 builder",
-          output: "验证脚本",
-          doneCriteria: ["脚本可在本地直接运行"],
+          title: "整理输出结构",
+          action: "将 milestones 和 atomicTasks 统一成规范 JSON 输出",
+          output: "规范化输出",
+          doneCriteria: ["输出字段符合约定"],
         },
         {
-          title: "执行并检查样本结果",
-          action: "使用 SkillForge 主计划样本执行脚本并打印 milestones/atomicTasks 摘要",
-          output: "验证运行结果",
-          doneCriteria: ["运行成功且结果字段完整"],
+          title: "执行结果校验",
+          action: "对输出结果做 contract 校验并修正结构问题",
+          output: "可用 plan 骨架",
+          doneCriteria: ["校验通过且可被下游消费"],
         },
       ],
     },

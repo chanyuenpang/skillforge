@@ -39,3 +39,9 @@ jobs:
 
       - name: Run contract validation
         run: pnpm --silent validate:contracts
+
+      - name: Run raw-evidence regression gate
+        run: pnpm --silent validate:betterprompt:raw-evidence:gate
+
+      - name: Run replay contract regression gate
+        run: pnpm --silent validate:replay:contracts

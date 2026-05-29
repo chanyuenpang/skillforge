@@ -1,0 +1,44 @@
+{
+  "name": "skillforge-shared-samples",
+  "protocol": "shared-sample.v0",
+  "version": "v0",
+  "root": "baselines/shared/v0/samples",
+  "files": [
+    {
+      "dataset": "betterprompt",
+      "path": "betterprompt.jsonl",
+      "count": 4
+    },
+    {
+      "dataset": "betterplan",
+      "path": "betterplan.jsonl",
+      "count": 2
+    },
+    {
+      "dataset": "integration",
+      "path": "integration.jsonl",
+      "count": 2
+    }
+  ],
+  "record_schema": {
+    "required": ["id", "dataset", "protocol", "source", "input"],
+    "id": "string (unique per file)",
+    "dataset": "enum: betterprompt|betterplan|integration",
+    "protocol": "must be shared-sample.v0",
+    "source": {
+      "type": "object",
+      "required": ["type"],
+      "notes": "ref/refs points to fixture/script origin for traceability"
+    },
+    "input": "object (dataset-specific payload, keep runner-facing shape stable)"
+  },
+  "runner_hints": {
+    "format": "jsonl (one JSON object per line)",
+    "load": "read manifest -> iterate files -> parse line-by-line",
+    "routing": {
+      "betterprompt": "buildBetterPromptPackage(input)",
+      "betterplan": "future betterPlan builder(input)",
+      "integration": "plan->prompt->spawn smoke/integration runner"
+    }
+  }
+}

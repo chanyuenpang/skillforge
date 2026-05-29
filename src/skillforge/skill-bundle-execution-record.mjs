@@ -1,4 +1,9 @@
-import { buildExecutionLogEntry } from "./execution-log-store.mjs";
+import {
+  createExecutionWithInput,
+  startExecution,
+  finishExecutionSucceeded,
+  finishExecutionFailed,
+} from "./execution-record-store.mjs";
 import { buildSkillBundleFallback } from "./skill-bundle-fallback.mjs";
 
 function toSafeSlug(value, fallback = "skill-bundle") {
@@ -40,25 +45,66 @@ export function buildSkillBundleExecutionRecord(input, matchResult, opts = {}) {
   const slug = toSafeSlug(input?.projectGoal ?? input?.context ?? "skill-bundle", "skill-bundle");
   const bundleRef = opts.bundleRef ?? `skill-bundle-${slug}`;
 
-  const record = buildExecutionLogEntry({
-    fixtureId: bundleRef,
-    status,
-    source: "skill-bundle-soft-recommendation",
-    input: null,
-    output: null,
-    durationMs: opts.durationMs ?? null,
-  });
-
   const bundleSummary = summarizeBundleMatch(matchResult);
   const fallback = buildSkillBundleFallback(matchResult, {
     lowConfidenceThreshold: opts.lowConfidenceThreshold ?? 8,
   });
 
+  const execution = createExecutionWithInput({
+    runId: bundleRef,
+    inputPayload: {
+      bundleRef,
+      input,
+      inputSummary: summarizeBundleInput(input),
+      source: "skill-bundle-soft-recommendation",
+      traceRefs: opts.traceRefs ?? null,
+    },
+    producer: "skill-bundle-execution-record:init",
+  });
+
+  const runningExecution = startExecution(execution);
+
+  let terminalExecution;
+  if (status === "failed") {
+    terminalExecution = finishExecutionFailed(runningExecution, {
+      errorPayload: {
+        code: opts.errorCode ?? "SKILL_BUNDLE_FAILED",
+        message: opts.errorMessage ?? "skill bundle recommendation failed",
+        details: opts.errorDetails ?? null,
+      },
+      producer: "skill-bundle-execution-record:fail",
+    });
+  } else {
+    terminalExecution = finishExecutionSucceeded(runningExecution, {
+      outputPayload: {
+        bundleRef,
+        selectedCount: bundleSummary.selectedCount,
+        score: bundleSummary.score,
+        reason: bundleSummary.reason,
+        selectedSkills: Array.isArray(matchResult?.selectedSkills)
+          ? matchResult.selectedSkills
+          : Array.isArray(matchResult?.selected)
+            ? matchResult.selected
+            : [],
+        fallback,
+      },
+      producer: "skill-bundle-execution-record:complete",
+    });
+  }
+
   return {
-    ...record,
     kind: "skillbundle.execution",
-    id: record.executionId,
-    createdAt: record.timestamp,
+    id: terminalExecution.executionId,
+    executionId: terminalExecution.executionId,
+    runId: terminalExecution.runId,
+    status: terminalExecution.status,
+    createdAt: terminalExecution.startedAt ?? new Date().toISOString(),
+    endedAt: terminalExecution.endedAt ?? null,
+
+    rawInputArtifactId: terminalExecution.rawInputArtifactId,
+    rawOutputArtifactId: terminalExecution.rawOutputArtifactId,
+    rawErrorArtifactId: terminalExecution.rawErrorArtifactId,
+    contractVersion: terminalExecution.contractVersion,
 
     inputSummary: summarizeBundleInput(input),
     selectedCount: bundleSummary.selectedCount,
@@ -94,8 +140,12 @@ export function buildSkillBundleExecutionRecord(input, matchResult, opts = {}) {
 export const toExecutionLogEvent = buildSkillBundleExecutionRecord;
 
 export async function saveSkillBundleExecutionRecord(record) {
-  const { save } = await import("./execution-log-store.mjs");
-  return save(record);
+  return {
+    ok: true,
+    executionId: record.executionId ?? record.id,
+    path: null,
+    mode: "execution-record-primary",
+  };
 }
 
 export default buildSkillBundleExecutionRecord;

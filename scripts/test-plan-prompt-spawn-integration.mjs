@@ -172,7 +172,7 @@ header('2. prompt 产物生成');
   });
 
   // task-3 should be ready (title: "Code review and bug fixing")
-  const result = linkReadyTasks({ planDTO, runtimeOutput: rt });
+  const result = await linkReadyTasks({ planDTO, runtimeOutput: rt });
 
   assert(result.traceRecords.length === 1, 'prompt 生成: 有 1 条 trace');
   assert(result.promptResults.length === 1, 'prompt 生成: 有 1 个 prompt result');
@@ -209,7 +209,7 @@ header('3. SpawnSpec 输出');
     completedTaskIds: ['task-1', 'task-2'],
   });
 
-  const result = linkReadyTasks({ planDTO, runtimeOutput: rt });
+  const result = await linkReadyTasks({ planDTO, runtimeOutput: rt });
   const { spec } = result.spawnSpecs[0];
 
   // Validate against the spawn-spec contract
@@ -248,7 +248,7 @@ header('4. trace 记录');
     completedTaskIds: ['task-1', 'task-2'],
   });
 
-  const result = linkReadyTasks({ planDTO, runtimeOutput: rt });
+  const result = await linkReadyTasks({ planDTO, runtimeOutput: rt });
   const trace = result.traceRecords[0];
 
   // Required fields
@@ -324,7 +324,7 @@ header('5. 多 ready task 场景');
   assert(rt.readyTaskIds.length === 3,
     `多任务无依赖: 3 个 ready (实际 ${rt.readyTaskIds.length})`);
 
-  const result = linkReadyTasks({ planDTO: dto2, runtimeOutput: rt });
+  const result = await linkReadyTasks({ planDTO: dto2, runtimeOutput: rt });
 
   assert(result.traceRecords.length === 3,
     `多任务集成: 3 条 trace (实际 ${result.traceRecords.length})`);
@@ -356,7 +356,7 @@ header('6. linkSingleTask 快捷接口');
   const planDTO = buildTestPlanDTO();
   const task1 = planDTO.tasks.find((t) => t.id === 'task-1');
 
-  const result = linkSingleTask(task1, planDTO);
+  const result = await linkSingleTask(task1, planDTO);
 
   assert(result.traceRecords.length === 1, 'linkSingleTask: 1 条 trace');
   assert(result.promptResults.length === 1, 'linkSingleTask: 1 个 prompt');
@@ -380,7 +380,7 @@ header('7. betterPrompt dogfooding');
     completedTaskIds: ['task-1', 'task-2'],
   });
 
-  const result = linkReadyTasks({ planDTO, runtimeOutput: rt });
+  const result = await linkReadyTasks({ planDTO, runtimeOutput: rt });
   const pr = result.promptResults[0];
 
   assert(Boolean(pr.betterPrompt), 'betterPrompt: 结果对象存在');
@@ -414,7 +414,7 @@ header('8. 边界情况');
   const planDTO = buildTestPlanDTO();
 
   // 7a. Empty runtime output
-  const r1 = linkReadyTasks({ planDTO, runtimeOutput: null });
+  const r1 = await linkReadyTasks({ planDTO, runtimeOutput: null });
   assert(r1.traceRecords.length === 0, 'null runtimeOutput: traceRecords 为空');
   assert(r1.summary === 'no runtime output provided', 'null runtimeOutput: 正确 summary');
 
@@ -423,7 +423,7 @@ header('8. 边界情况');
     planDTO,
     completedTaskIds: ['task-1', 'task-2', 'task-3', 'task-4'],
   });
-  const r2 = linkReadyTasks({ planDTO, runtimeOutput: rtAll });
+  const r2 = await linkReadyTasks({ planDTO, runtimeOutput: rtAll });
   assert(r2.traceRecords.length === 0, '零 ready task: traceRecords 为空');
   assert(r2.summary === 'no ready tasks to link', '零 ready task: 正确 summary');
 
@@ -432,7 +432,7 @@ header('8. 边界情况');
     planDTO,
     completedTaskIds: [],
   });
-  const r3 = linkReadyTasks({ planDTO: null, runtimeOutput: rt1 });
+  const r3 = await linkReadyTasks({ planDTO: null, runtimeOutput: rt1 });
   assert(r3.traceRecords.length === 0, '无 planDTO: 找不到 task 不链接 (安全跳过)');
 }
 

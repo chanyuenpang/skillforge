@@ -1,0 +1,146 @@
+{
+  "runner": "run-shared-baseline-v0",
+  "protocol": "shared-sample.v0",
+  "run_id": "6acb7c96-17f0-47cf-b333-9aa6acc831b3",
+  "started_at": "2026-05-29T13:01:01.498Z",
+  "finished_at": "2026-05-29T13:01:49.620Z",
+  "duration_ms": 48122,
+  "stages": [
+    {
+      "dataset": "betterprompt",
+      "status": "completed",
+      "exit_code": 0,
+      "duration_ms": 29,
+      "metrics": {
+        "total_samples": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      "samples": [
+        {
+          "id": "bp-clear-goal-landing-copy-v1",
+          "status": "passed",
+          "duration_ms": 4,
+          "betterprompt_package_id": "betterprompt-v1-1780059661528",
+          "betterprompt_skills": [
+            "default-general"
+          ],
+          "betterprompt_qc_pass": true,
+          "betterprompt_fallback": false
+        },
+        {
+          "id": "bp-missing-info-dispatch-policy-v1",
+          "status": "passed",
+          "duration_ms": 0,
+          "betterprompt_package_id": "betterprompt-v1-1780059661530",
+          "betterprompt_skills": [
+            "default-general"
+          ],
+          "betterprompt_qc_pass": true,
+          "betterprompt_fallback": false
+        },
+        {
+          "id": "bp-conflicting-constraints-regression-v1",
+          "status": "passed",
+          "duration_ms": 0,
+          "betterprompt_package_id": "betterprompt-v1-1780059661530",
+          "betterprompt_skills": [
+            "default-general"
+          ],
+          "betterprompt_qc_pass": true,
+          "betterprompt_fallback": false
+        },
+        {
+          "id": "bp-raw-evidence-present-v1",
+          "status": "passed",
+          "duration_ms": 0,
+          "betterprompt_package_id": "betterprompt-v1-1780059661530",
+          "betterprompt_skills": [
+            "default-general"
+          ],
+          "betterprompt_qc_pass": true,
+          "betterprompt_fallback": false
+        }
+      ],
+      "capability": "full"
+    },
+    {
+      "dataset": "betterplan",
+      "status": "completed",
+      "exit_code": 0,
+      "duration_ms": 48086,
+      "metrics": {
+        "total_samples": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "samples": [
+        {
+          "id": "bplan-minimal-from-workflow-artifact-1",
+          "status": "passed",
+          "duration_ms": 26208,
+          "betterplan_goal": "SkillForge 主计划补最小 artifact 留痕并产出真实样本",
+          "betterplan_skeleton_len": 3,
+          "betterplan_fallback_used": false,
+          "betterplan_confidence": 0.9,
+          "result_digest": "{\"goal\":\"SkillForge 主计划补最小 artifact 留痕并产出真实样本\",\"boundaries\":[\"只做第一轮最小可运行打样\",\"不接 execution-log / run center\"],\"skeleton_len\":3,\"gaps\":[\"未明确 artifact 留痕的具体内容和格式\",\"产出真实样本的标准和范围未定义\"],\"confidence\":0.9}"
+        },
+        {
+          "id": "bplan-minimal-from-workflow-artifact-2",
+          "status": "passed",
+          "duration_ms": 21876,
+          "betterplan_goal": "SkillForge 主计划补最小 artifact 留痕并产出真实样本（第二条）",
+          "betterplan_skeleton_len": 3,
+          "betterplan_fallback_used": false,
+          "betterplan_confidence": 0.7,
+          "result_digest": "{\"goal\":\"SkillForge 主计划补最小 artifact 留痕并产出真实样本（第二条）\",\"boundaries\":[\"只做第一轮最小可运行打样\",\"不接入 execution-log / run center\"],\"skeleton_len\":3,\"gaps\":[\"提取失败：未从 LLM 输出中识别到缺口信息\"],\"confidence\":0.7}"
+        }
+      ],
+      "capability": "full"
+    },
+    {
+      "dataset": "integration",
+      "status": "completed",
+      "exit_code": 0,
+      "duration_ms": 4,
+      "metrics": {
+        "total_samples": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "samples": [
+        {
+          "id": "integration-plan-to-prompt-minimal-v1",
+          "status": "passed",
+          "duration_ms": 2,
+          "integration_trace_count": 1,
+          "integration_prompt_count": 1,
+          "integration_spawn_count": 1,
+          "result_digest": "{\"summary\":\"linked 1 ready task(s): plan → prompt → spawn (betterPrompt attempted=1, accepted=0)\",\"trace_count\":1,\"spawn_valid_count\":1,\"spawn_total_count\":1,\"prompt_count\":1,\"betterprompt_attempted\":true}"
+        },
+        {
+          "id": "integration-artifact-driven-v1",
+          "status": "passed",
+          "duration_ms": 0,
+          "integration_trace_count": 1,
+          "integration_prompt_count": 1,
+          "integration_spawn_count": 1,
+          "result_digest": "{\"summary\":\"linked 1 ready task(s): plan → prompt → spawn (betterPrompt attempted=1, accepted=0)\",\"trace_count\":1,\"spawn_valid_count\":1,\"spawn_total_count\":1,\"prompt_count\":1,\"betterprompt_attempted\":true}"
+        }
+      ],
+      "note": "plan→prompt→spawn 烟测链路：验证 PlanDTO 构建 → runtime 评估 → ready task 链接 → SpawnSpec 校验",
+      "capability": "smoke"
+    }
+  ],
+  "totals": {
+    "stages": 3,
+    "total_samples": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0
+  },
+  "overall_status": "completed"
+}

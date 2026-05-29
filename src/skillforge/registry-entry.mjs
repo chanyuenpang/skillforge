@@ -17,6 +17,10 @@ function isStringArray(value) {
   return Array.isArray(value) && value.every((item) => hasText(item));
 }
 
+function isTagArray(value) {
+  return Array.isArray(value) && value.every((item) => isPlainObject(item) && hasText(item.id));
+}
+
 function pushError(errors, field, message) {
   errors.push({ field, message });
 }
@@ -51,6 +55,9 @@ export function createRegistryEntry(publishPrep, registryInputs = {}) {
   }
 
   const now = new Date().toISOString();
+  const semanticAsset = registryInputs.semanticAsset && isPlainObject(registryInputs.semanticAsset)
+    ? registryInputs.semanticAsset
+    : null;
 
   // Build reviewDecision back-reference from PublishPrep
   const reviewDecision = {
@@ -86,6 +93,9 @@ export function createRegistryEntry(publishPrep, registryInputs = {}) {
     version: registryInputs.version ?? null,
     fixtureId: publishPrep.reviewRecordRef?.fixtureId ?? null,
     source: registryInputs.source ?? { type: "skillforge-fixture", location: null },
+    source_hash: hasText(registryInputs.source_hash) ? registryInputs.source_hash : null,
+    semanticAsset,
+    tags: isTagArray(registryInputs.tags) ? registryInputs.tags : [],
     reviewDecision,
     publishPrepRef,
     provenance: {
@@ -120,6 +130,11 @@ export function validateRegistryEntry(record) {
     pushError(errors, "source", "is required and must be an object");
   } else {
     if (!hasText(record.source.type)) pushError(errors, "source.type", "is required");
+  }
+
+  // tags
+  if (record.tags !== undefined && !isTagArray(record.tags)) {
+    pushError(errors, "tags", "must be an array of { id, ... } objects");
   }
 
   // reviewDecision back-reference

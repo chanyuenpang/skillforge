@@ -29,7 +29,7 @@ import {
   evaluateRunApprovalGate,
 } from './src/skillforge/approval-store.mjs';
 import { homedir } from 'node:os';
-import { existsSync, readFileSync, createReadStream, statSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, createReadStream, statSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import {
   list as listExecLog,
   loadById as loadExecById,
@@ -37,6 +37,8 @@ import {
   save as saveExecLog,
   buildExecutionLogEntry,
 } from './src/skillforge/execution-log-store.mjs';
+import { loadLatestExecution } from './src/skillforge/execution-record-store.mjs';
+import { loadRawArtifactById } from './src/skillforge/raw-artifact-store.mjs';
 import { buildBetterWorkflowRunCenterView } from './src/skillforge/betterworkflow-run-center-view.mjs';
 import { buildBetterPromptRunCenterView } from './src/skillforge/betterprompt-run-center-view.mjs';
 import { buildSkillBundleRunCenterView } from './src/skillforge/skill-bundle-run-center-view.mjs';
@@ -57,6 +59,7 @@ import {
   listRuns,
   countRuns,
 } from './src/skillforge/task-run-store.mjs';
+import { executeTask4Runtime } from './src/skillforge/task4-runtime.mjs';
 import { extname, resolve, dirname, relative, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -841,6 +844,20 @@ function getRunLogByRunId(runId) {
   return listExecLog().find((r) => r.executionId === runId) || null;
 }
 
+function writeTaskRunEvidenceSnapshot(taskRunId, payload = {}) {
+  const dir = `${homedir()}/.skillforge/evidence/task-runs`;
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  const filePath = `${dir}/${taskRunId}.json`;
+  const snapshot = {
+    generatedAt: new Date().toISOString(),
+    ...payload,
+  };
+  writeFileSync(filePath, JSON.stringify(snapshot, null, 2), 'utf8');
+  return { path: filePath, snapshot };
+}
+
 function mapRunArtifactsPayload(item) {
   const base = mapRunItem(item);
   const artifacts = {
@@ -855,15 +872,11 @@ function mapRunArtifactsPayload(item) {
 
   try {
     const executionId = item.executionId;
-    const fixtureId = item.fixtureId;
     const allTranscripts = listTranscripts();
 
-    const byExecution = executionId
+    const linkedTranscripts = executionId
       ? allTranscripts.filter((t) => t.executionId === executionId)
       : [];
-    const linkedTranscripts = byExecution.length > 0
-      ? byExecution
-      : (fixtureId ? allTranscripts.filter((t) => t.fixtureId === fixtureId) : []);
 
     const hasTranscriptContent = (t) => {
       const outputContent = t?.output?.content;
@@ -874,8 +887,8 @@ function mapRunArtifactsPayload(item) {
     const anchorOnlyCount = linkedTranscripts.length - materializedTranscripts.length;
 
     artifacts.transcript = {
-      anchorType: byExecution.length > 0 ? 'executionId' : 'fixtureId',
-      anchorValue: byExecution.length > 0 ? executionId : fixtureId,
+      anchorType: 'executionId',
+      anchorValue: executionId ?? null,
       count: materializedTranscripts.length,
       refs: materializedTranscripts.map((t) => ({
         transcriptId: t.transcriptId,
@@ -1109,18 +1122,14 @@ function buildRunDetail(runId) {
     }
   } catch { /* non-critical */ }
 
-  // transcript evidence anchors (prefer executionId, fallback fixtureId)
+  // transcript evidence anchors — executionId is the primary anchor
   try {
     const executionId = item.executionId;
-    const fixtureId = item.fixtureId;
     const allTranscripts = listTranscripts();
 
-    const byExecution = executionId
+    const linkedTranscripts = executionId
       ? allTranscripts.filter((t) => t.executionId === executionId)
       : [];
-    const linkedTranscripts = byExecution.length > 0
-      ? byExecution
-      : (fixtureId ? allTranscripts.filter((t) => t.fixtureId === fixtureId) : []);
 
     const hasTranscriptContent = (t) => {
       const outputContent = t?.output?.content;
@@ -1133,8 +1142,8 @@ function buildRunDetail(runId) {
 
     detail.evidence = {
       transcript: {
-        anchorType: byExecution.length > 0 ? 'executionId' : 'fixtureId',
-        anchorValue: byExecution.length > 0 ? executionId : fixtureId,
+        anchorType: 'executionId',
+        anchorValue: executionId ?? null,
         count: materializedTranscripts.length,
         refs: materializedTranscripts.map((t) => ({
           transcriptId: t.transcriptId,
@@ -1156,8 +1165,8 @@ function buildRunDetail(runId) {
       detail.output = {
         ...(detail.output ?? {}),
         transcripts: {
-          anchorType: byExecution.length > 0 ? 'executionId' : 'fixtureId',
-          anchorValue: byExecution.length > 0 ? executionId : fixtureId,
+          anchorType: 'executionId',
+          anchorValue: executionId ?? null,
           count: materializedTranscripts.length,
           refs: materializedTranscripts.map((t) => ({
             transcriptId: t.transcriptId,
@@ -1228,7 +1237,7 @@ function buildRunDetail(runId) {
   detail.failureMessage = humanMessages.failureMessage;
 
   // raw text layer: try to extract raw content from detail
-  const rawInput =
+  let rawInput =
     detail?.rawInput ??
     detail?.input?.content ??
     detail?.input?.message ??
@@ -1238,7 +1247,7 @@ function buildRunDetail(runId) {
     detail?.input?.description ??
     null;
 
-  const rawOutput =
+  let rawOutput =
     detail?.rawOutput ??
     detail?.output?.content ??
     detail?.output?.message ??
@@ -1247,6 +1256,24 @@ function buildRunDetail(runId) {
     detail?.output?.result ??
     detail?.output?.response ??
     null;
+
+  if (!rawInput || !rawOutput) {
+    try {
+      const execution = loadLatestExecution({ runId: item?.executionId, executionId: item?.executionId }) || null;
+      if (execution) {
+        if (!rawInput && execution.rawInputArtifactId) {
+          const rawInputArtifact = loadRawArtifactById(execution.rawInputArtifactId);
+          const payload = rawInputArtifact?.payload;
+          rawInput = typeof payload === 'string' ? payload : (payload == null ? null : JSON.stringify(payload));
+        }
+        if (!rawOutput && execution.rawOutputArtifactId) {
+          const rawOutputArtifact = loadRawArtifactById(execution.rawOutputArtifactId);
+          const payload = rawOutputArtifact?.payload;
+          rawOutput = typeof payload === 'string' ? payload : (payload == null ? null : JSON.stringify(payload));
+        }
+      }
+    } catch { /* non-critical */ }
+  }
 
   detail.rawInput = rawInput;
   detail.rawOutput = rawOutput;
@@ -2059,7 +2086,105 @@ const server = http.createServer(async (req, res) => {
           metadata: body.metadata ?? null,
         });
 
-        return json(res, apiSuccess(result), result.duplicate ? 200 : 201, requestId);
+        const runType = String(body.runType || body.mode || '').trim().toLowerCase();
+        const shouldExecuteTask4 = runType === 'task4-runtime';
+
+        if (!shouldExecuteTask4 || result.duplicate) {
+          return json(res, apiSuccess(result), result.duplicate ? 200 : 201, requestId);
+        }
+
+        try {
+          startTaskRun(result.taskRunId);
+
+          const task4InputText =
+            (typeof body.inputText === 'string' && body.inputText.trim())
+            || (typeof body.params?.inputText === 'string' && body.params.inputText.trim())
+            || (typeof body.params?.raw === 'string' && body.params.raw.trim())
+            || '';
+
+          const task4Language =
+            (typeof body.language === 'string' && body.language.trim())
+            || (typeof body.params?.language === 'string' && body.params.language.trim())
+            || 'zh-CN';
+
+          const runtime = await executeTask4Runtime({
+            inputText: task4InputText,
+            language: task4Language,
+            metadata: {
+              taskRunId: result.taskRunId,
+              fixtureId: body.fixtureId,
+              source: 'api/tasks/runs',
+            },
+          });
+
+          recordOutput(result.taskRunId, {
+            kind: 'result',
+            content: JSON.stringify(runtime.output),
+            payload: runtime.output,
+          });
+
+          const transcriptBody = {
+            kind: 'transcript',
+            content: JSON.stringify(runtime.transcript ?? {
+              kind: runtime.kind,
+              output: runtime.output,
+              durationMs: runtime.durationMs,
+            }),
+            payload: runtime.transcript ?? {
+              kind: runtime.kind,
+              output: runtime.output,
+              durationMs: runtime.durationMs,
+            },
+          };
+
+          recordOutput(result.taskRunId, transcriptBody);
+
+          completeTaskRun(result.taskRunId, {
+            durationMs: runtime.durationMs,
+            message: 'task4-runtime succeeded',
+          });
+
+          const response = {
+            ...result,
+            status: 'succeeded',
+            runType: 'task4-runtime',
+            task4: runtime.output,
+            runtimeResult: {
+              kind: runtime.kind,
+              durationMs: runtime.durationMs,
+              input: runtime.input,
+              output: runtime.output,
+              transcript: runtime.transcript ?? null,
+              persistenceHint: runtime.persistenceHint ?? null,
+            },
+          };
+          return json(res, apiSuccess(response), 201, requestId);
+        } catch (e) {
+          try {
+            failTaskRun(result.taskRunId, {
+              code: e?.code || 'TASK4_RUNTIME_FAILED',
+              message: e?.message || 'task4-runtime failed',
+              details: null,
+            });
+          } catch { /* ignore */ }
+
+          // task4-runtime failures flow through task-run-store (failTaskRun above).
+          // execution-log and transcript persistence stays with the unified main chain
+          // (POST /api/tasks/runs/:taskRunId/complete|fail), not here.
+
+          return sendError(
+            res,
+            500,
+            e?.code || 'TASK4_RUNTIME_FAILED',
+            e?.message || 'task4-runtime failed',
+            {
+              taskRunId: result.taskRunId,
+              fixtureId: body.fixtureId,
+              runType: 'task4-runtime',
+            },
+            true,
+          );
+        }
       }
 
       // GET /api/tasks/runs — list runs
@@ -2090,29 +2215,68 @@ const server = http.createServer(async (req, res) => {
           });
         } catch { /* non-critical */ }
 
-        // Cross-reference transcript-store for evidence
-        let transcriptRefs = [];
+        // Cross-reference transcript-store for evidence with unified contract
+        let transcript = null;
         try {
-          const fixtureId = lineage.init?.fixtureId;
-          transcriptRefs = listTranscripts()
-            .filter((t) => {
-              const byExecId = execLogEntries.some((el) => el.executionId === t.executionId);
-              return byExecId || t.executionId === matched.taskRunId || t.fixtureId === fixtureId;
-            })
-            .map((t) => ({
-              transcriptId: t.transcriptId,
-              provider: t.provider,
-              model: t.model,
-              timestamp: t.timestamp,
-              status: t.status,
-              executionTimeMs: t.executionTimeMs,
-            }));
+          const fixtureId = lineage.init?.fixtureId || null;
+          const executionIds = [
+            ...new Set(
+              execLogEntries
+                .map((el) => (typeof el.executionId === 'string' ? el.executionId.trim() : ''))
+                .filter(Boolean),
+            ),
+          ];
+
+          const allTranscripts = listTranscripts();
+          const selected = executionIds.length > 0
+            ? allTranscripts.filter((t) => executionIds.includes(t.executionId))
+            : [];
+
+          const toLifecycleStatus = (entries = []) => {
+            if (!entries.length) return null;
+            const statuses = entries.map((e) => String(e?.status || '').toLowerCase());
+            if (statuses.some((s) => s === 'error' || s === 'failed')) return 'failed';
+
+            const terminalEvents = lineage.events.filter((e) => e.event === 'task-run-completed' || e.event === 'task-run-failed');
+            const hasTerminal = terminalEvents.length > 0;
+            const latestTerminalAt = hasTerminal
+              ? terminalEvents.map((e) => e.recordedAt || '').sort().at(-1)
+              : null;
+            const latestTranscriptAt = entries.map((e) => e.timestamp || '').sort().at(-1);
+
+            if (hasTerminal && latestTerminalAt && latestTranscriptAt && latestTranscriptAt <= latestTerminalAt) {
+              return 'finalized';
+            }
+            return 'collecting';
+          };
+
+          {
+            const lifecycleStatus = toLifecycleStatus(selected);
+            transcript = {
+              id: executionIds.length === 1 ? executionIds[0] : executionIds,
+              source: 'executionId',
+              status: lifecycleStatus,
+              refs: selected.map((t) => ({
+                transcriptId: t.transcriptId,
+                provider: t.provider,
+                model: t.model,
+                timestamp: t.timestamp,
+                status: t.status,
+                executionTimeMs: t.executionTimeMs,
+                executionId: t.executionId ?? null,
+                caseId: t.caseId ?? null,
+              })),
+              count: selected.length,
+              fixtureId,
+              resolution: selected.length > 0 ? 'primary' : 'legacy-fallback',
+            };
+          }
         } catch { /* non-critical */ }
 
         return json(res, apiSuccess({
           ...lineage,
           executionLog: execLogEntries.length > 0 ? execLogEntries : null,
-          transcriptEvidence: transcriptRefs.length > 0 ? transcriptRefs : null,
+          transcript,
         }), 200, requestId);
       }
 
@@ -2157,6 +2321,58 @@ const server = http.createServer(async (req, res) => {
             }
           } catch (e) {
             console.error('[task-run] execution-log write failed (non-fatal):', e.message);
+          }
+
+          // Write evidence snapshot
+          try {
+            const lineage2 = getLineage(matched.taskRunId);
+            const executionId = lineage2?.init?.executionId ?? null;
+            const fixtureId = lineage2?.init?.fixtureId ?? null;
+            const timeline = Array.isArray(lineage2?.events)
+              ? lineage2.events.map((e) => ({ event: e.event, recordedAt: e.recordedAt }))
+              : [];
+            const allTranscripts = listTranscripts();
+            const transcriptRefs = executionId
+              ? allTranscripts
+                .filter((t) => t.executionId === executionId)
+                .map((t) => ({
+                  transcriptId: t.transcriptId,
+                  executionId: t.executionId ?? null,
+                  provider: t.provider,
+                  model: t.model,
+                  timestamp: t.timestamp,
+                  status: t.status,
+                }))
+              : [];
+            const artifactIds = Array.isArray(lineage2?.artifacts)
+              ? lineage2.artifacts.map((a) => a.artifactId).filter(Boolean)
+              : [];
+
+            const requestSummary = {
+              message: body.message ?? null,
+              durationMs: body.durationMs ?? null,
+              hasInput: body.input != null,
+              hasOutput: body.output != null,
+            };
+            const responseSummary = {
+              ok: result.ok,
+              status: result.status,
+              completedAt: result.completedAt ?? null,
+              durationMs: result.durationMs ?? null,
+            };
+
+            writeTaskRunEvidenceSnapshot(matched.taskRunId, {
+              taskRunId: matched.taskRunId,
+              executionId,
+              fixtureId,
+              timeline,
+              transcriptRefs,
+              artifactIds,
+              requestSummary,
+              responseSummary,
+            });
+          } catch (e) {
+            console.error('[task-run] evidence snapshot write failed (non-fatal):', e.message);
           }
         }
 
@@ -2217,13 +2433,14 @@ const server = http.createServer(async (req, res) => {
         if (result.ok && ['transcript', 'evidence'].includes(body.kind ?? '')) {
           try {
             const lineage = getLineage(matched.taskRunId);
+            const realExecutionId = lineage?.init?.executionId;
             saveTranscript({
               transcriptId: `task-run:${matched.taskRunId}:${Date.now()}`,
               provider: 'task-run',
               model: 'system',
               caseId: matched.taskRunId,
               fixtureId: lineage?.init?.fixtureId ?? null,
-              executionId: matched.taskRunId,
+              executionId: realExecutionId,
               timestamp: new Date().toISOString(),
               executionTimeMs: 0,
               status: 'completed',

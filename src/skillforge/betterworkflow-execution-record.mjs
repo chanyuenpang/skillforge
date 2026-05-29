@@ -10,7 +10,12 @@
  * Intentionally minimal: no UI ingestion, no full Run Center — just the record shape
  * that can later be consumed by any log viewer / Run Center.
  */
-import { buildExecutionLogEntry, validateExecutionLogEntry } from "./execution-log-store.mjs";
+import {
+  createExecutionWithInput,
+  startExecution,
+  finishExecutionSucceeded,
+  finishExecutionFailed,
+} from "./execution-record-store.mjs";
 
 // ── helpers ───────────────────────────────────────────────────────────
 
@@ -68,49 +73,82 @@ function extractPipelineStats(pipelineResult) {
  * @returns {object} execution log record
  */
 export function buildBetterWorkflowExecutionRecord(input, pipelineResult, opts = {}) {
-  const status = opts.status ?? "completed";
+  const rawStatus = String(opts.status ?? "completed").toLowerCase();
+  const status = rawStatus === "failed" ? "failed" : "completed";
 
   const stats = extractPipelineStats(pipelineResult);
   const inputSummary = summarizeBetterWorkflowInput(input);
   const slug = toSafeSlug(input?.goal?.summary, "betterworkflow");
   const workflowRef = opts.workflowRef ?? `betterworkflow-${slug}`;
 
-  // Build the base execution-log record so it passes validation.
-  const record = buildExecutionLogEntry({
-    fixtureId: workflowRef,
-    status,
-    source: "betterworkflow-pipeline",
-    input: null,
-    output: null,
-    durationMs: opts.durationMs ?? null,
+  const execution = createExecutionWithInput({
+    runId: workflowRef,
+    inputPayload: {
+      workflowRef,
+      input,
+      inputSummary,
+      source: "betterworkflow-pipeline",
+      traceRefs: opts.traceRefs ?? null,
+    },
+    producer: "betterworkflow-execution-record:init",
   });
 
-  // Attach betterWorkflow-specific trace fields on top of the base record.
+  const runningExecution = startExecution(execution);
+
+  let terminalExecution;
+  if (status === "failed") {
+    terminalExecution = finishExecutionFailed(runningExecution, {
+      errorPayload: {
+        code: opts.errorCode ?? "BETTERWORKFLOW_FAILED",
+        message: opts.errorMessage ?? "betterWorkflow pipeline failed",
+        details: opts.errorDetails ?? null,
+      },
+      producer: "betterworkflow-execution-record:fail",
+    });
+  } else {
+    terminalExecution = finishExecutionSucceeded(runningExecution, {
+      outputPayload: {
+        workflowRef,
+        stats,
+        artifactPath: opts.artifactPath ?? null,
+        planRef: opts.planRef ?? null,
+        taskRef: opts.taskRef ?? null,
+        traceRefs: opts.traceRefs ?? null,
+      },
+      producer: "betterworkflow-execution-record:complete",
+    });
+  }
+
   return {
-    ...record,
-
-    // ── betterWorkflow trace envelope ──────────────────────────────
     kind: "betterworkflow.execution",
-    // source / id / createdAt are already on record; expose id as an alias
-    id: record.executionId,
-    createdAt: record.timestamp,
+    id: terminalExecution.executionId,
+    executionId: terminalExecution.executionId,
+    fixtureId: workflowRef,
+    timestamp: terminalExecution.startedAt ?? new Date().toISOString(),
+    source: "betterworkflow-pipeline",
+    runId: terminalExecution.runId,
+    status,
+    createdAt: terminalExecution.startedAt ?? new Date().toISOString(),
+    endedAt: terminalExecution.endedAt ?? null,
 
-    // ── input summary ──────────────────────────────────────────────
+    rawInputArtifactId: terminalExecution.rawInputArtifactId,
+    rawOutputArtifactId: terminalExecution.rawOutputArtifactId,
+    rawErrorArtifactId: terminalExecution.rawErrorArtifactId,
+    contractVersion: terminalExecution.contractVersion,
+
     inputSummary,
-
-    // ── pipeline stats ─────────────────────────────────────────────
     milestoneCount: stats.milestoneCount,
     atomicTaskCount: stats.atomicTaskCount,
     phaseCount: stats.phaseCount,
     taskCount: stats.taskCount,
     dependencyCount: stats.dependencyCount,
 
-    // ── refs ───────────────────────────────────────────────────────
     workflowRef,
     artifactPath: opts.artifactPath ?? null,
     planRef: opts.planRef ?? null,
     taskRef: opts.taskRef ?? null,
     traceRefs: opts.traceRefs ?? null,
+    durationMs: Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : null,
   };
 }
 
@@ -127,11 +165,12 @@ export const toExecutionLogEvent = buildBetterWorkflowExecutionRecord;
  * @throws if validation fails
  */
 export async function saveBetterWorkflowExecutionRecord(record) {
-  // Strip extra fields that execution-log-store doesn't know about;
-  // save() does its own shape-check, so we pass the record as-is — the
-  // store only validates its own required fields.
-  const { save } = await import("./execution-log-store.mjs");
-  return save(record);
+  return {
+    ok: true,
+    executionId: record.executionId ?? record.id,
+    path: null,
+    mode: "execution-record-primary",
+  };
 }
 
 export default buildBetterWorkflowExecutionRecord;
