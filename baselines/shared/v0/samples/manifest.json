@@ -18,6 +18,21 @@
       "dataset": "integration",
       "path": "integration.jsonl",
       "count": 2
+    },
+    {
+      "dataset": "betterprompt",
+      "path": "betterprompt.batch2.jsonl",
+      "count": 2
+    },
+    {
+      "dataset": "betterplan",
+      "path": "betterplan.batch2.jsonl",
+      "count": 2
+    },
+    {
+      "dataset": "integration",
+      "path": "integration.batch2.jsonl",
+      "count": 2
     }
   ],
   "record_schema": {

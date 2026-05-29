@@ -1,0 +1,48 @@
+name: Nightly Shared Baseline v0
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run shared baseline v0
+        run: pnpm --silent baseline:shared:v0
+
+      - name: Upload summary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-shared-baseline-v0-summary-${{ github.run_id }}
+          path: baselines/shared/v0/results/summary.json
+
+      - name: Upload failures artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-shared-baseline-v0-failures-${{ github.run_id }}
+          path: baselines/shared/v0/results/failures.ndjson

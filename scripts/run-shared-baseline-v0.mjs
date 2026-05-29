@@ -278,6 +278,78 @@ function makeStageResult({
   };
 }
 
+function buildFailureSampleSnapshot(sample) {
+  const allowedFields = [
+    'betterprompt_fallback',
+    'betterprompt_package_id',
+    'betterprompt_qc_pass',
+    'betterprompt_skills',
+    'betterplan_fallback_used',
+    'betterplan_confidence',
+    'betterplan_skeleton_len',
+    'integration_trace_count',
+    'integration_prompt_count',
+    'integration_spawn_count',
+    'result_digest',
+    'warnings',
+    'duration_ms',
+  ];
+
+  const snapshot = {};
+  for (const key of allowedFields) {
+    const value = sample?.[key];
+    if (value !== undefined && value !== null) {
+      snapshot[key] = value;
+    }
+  }
+
+  return snapshot;
+}
+
+function buildFailuresNDJSON(summary) {
+  const bestBySample = new Map();
+
+  for (const stage of toArray(summary?.stages)) {
+    const dataset = stage?.dataset || 'unknown';
+    for (const sample of toArray(stage?.samples)) {
+      const status = sample?.status;
+      if (status !== 'error' && status !== 'partial') continue;
+
+      const sampleId = sample?.id || 'unknown';
+      const key = `${dataset}::${sampleId}`;
+      const reason = hasText(sample?.error) ? sample.error : undefined;
+      const reasonCode = hasText(sample?.error) ? 'RUNTIME_ERROR' : 'PARTIAL_RESULT';
+
+      const item = {
+        run_id: summary.run_id,
+        dataset,
+        sample_id: sampleId,
+        status,
+        stage: dataset,
+        reason_code: reasonCode,
+        ...(reason ? { reason } : {}),
+        sample_snapshot: buildFailureSampleSnapshot(sample),
+        ts: nowISO(),
+      };
+
+      const existing = bestBySample.get(key);
+      if (!existing) {
+        bestBySample.set(key, item);
+        continue;
+      }
+
+      // 去重优先级：error > partial
+      if (existing.status !== 'error' && item.status === 'error') {
+        bestBySample.set(key, item);
+      }
+    }
+  }
+
+  return Array.from(bestBySample.values())
+    .map((row) => JSON.stringify(row))
+    .join('\n');
+}
+
 // ── Stage runners ───────────────────────────────────────────────────────────
 
 async function runBetterPromptStage(samples) {
@@ -715,7 +787,12 @@ async function main() {
   const summaryPath = join(RESULTS_DIR, 'summary.json');
   await writeFile(summaryPath, JSON.stringify(summary, null, 2), 'utf8');
 
-  // 4. Console report
+  // 4. Build & write failure pool NDJSON (overwrite each run)
+  const failuresPath = join(RESULTS_DIR, 'failures.ndjson');
+  const failuresNDJSON = buildFailuresNDJSON(summary);
+  await writeFile(failuresPath, failuresNDJSON ? `${failuresNDJSON}\n` : '', 'utf8');
+
+  // 5. Console report
   console.log(`\n${'='.repeat(50)}`);
   console.log(`📊 Summary: ${totalPassed} passed, ${totalFailed} failed, ${totalSkipped} skipped`);
   console.log(`   整体状态: ${overallStatus === 'completed' ? '✅ 全部通过' : '⚠️ 部分通过'}`);
