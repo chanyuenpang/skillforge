@@ -1,17 +1,3 @@
-/**
- * betterplan-contract.mjs — betterPlan v1 input/output contract
- *
- * Input:  { plan: string, goal_hint?: string }
- * Output: lightweight task skeleton { goal, boundaries, skeleton, ... }
- *
- * Principles:
- *  - Program validates structure; LLM fills content
- *  - Output is a skeleton, not a full workflow with atomic tasks
- *  - No phase state machine, no governance pipeline
- */
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -20,198 +6,99 @@ function hasText(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function isNonEmptyStringArray(value) {
-  return Array.isArray(value) && value.length > 0 && value.every((item) => hasText(item));
-}
-
 function pushError(errors, field, message) {
   errors.push({ field, message });
 }
 
-// ── Input Contract ───────────────────────────────────────────────────────────
+const FINDING_SEVERITIES = new Set(['info', 'warning', 'error']);
+const FINDING_BASES = new Set(['workflow', 'general']);
 
-/**
- * BetterPlanInput
- * @property {string}  plan       — raw plan text (plan_write original or user-provided)
- * @property {string}  [goal_hint] — optional high-level goal hint
- */
 export const BetterPlanInputSchema = Object.freeze({
   name: 'BetterPlanInput',
-  version: '1.0.0',
+  version: '2.0.0',
   fields: Object.freeze({
-    plan: 'string (required, non-empty, max ~32000 chars)',
+    plan: 'string (required, non-empty)',
     goal_hint: 'string (optional)',
-    max_tokens: 'number (optional, LLM output limit)',
+    max_tokens: 'number (optional)',
+  }),
+});
+
+export const BetterPlanOutputSchema = Object.freeze({
+  name: 'BetterPlanOutput',
+  version: '2.0.0',
+  fields: Object.freeze({
+    summary: 'string (required, non-empty)',
+    workflowBasis: ['string'],
+    findings: [
+      {
+        severity: 'info|warning|error',
+        basis: 'workflow|general',
+        type: 'string (required)',
+        message: 'string (required)',
+        suggestion: 'string (required)',
+        source_skill_ref: 'string (optional)',
+      },
+    ],
+    confidence: 'number (0-1)',
   }),
 });
 
 export function validateBetterPlanInput(input) {
   const errors = [];
-
   if (!isPlainObject(input)) {
     pushError(errors, '$', 'input must be an object');
     return { valid: false, errors };
   }
 
-  if (!hasText(input.plan)) {
-    pushError(errors, 'plan', 'is required and must be a non-empty string');
-  } else if (input.plan.length > 64000) {
-    pushError(errors, 'plan', 'exceeds 64000 character limit');
+  if (!hasText(input.plan)) pushError(errors, 'plan', 'is required and must be a non-empty string');
+  if (typeof input.plan === 'string' && input.plan.length > 64000) pushError(errors, 'plan', 'exceeds 64000 character limit');
+  if (input.goal_hint != null && typeof input.goal_hint !== 'string') pushError(errors, 'goal_hint', 'must be a string if provided');
+  if (input.max_tokens != null && (!Number.isFinite(input.max_tokens) || input.max_tokens <= 0)) {
+    pushError(errors, 'max_tokens', 'must be a positive number if provided');
   }
 
-  // goal_hint is optional, but if present must be a string
-  if (input.goal_hint !== undefined && input.goal_hint !== null && typeof input.goal_hint !== 'string') {
-    pushError(errors, 'goal_hint', 'must be a string if provided');
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
+  return { valid: errors.length === 0, errors };
 }
 
-// ── Output Contract ──────────────────────────────────────────────────────────
-
-/**
- * BetterPlanOutput — lightweight task skeleton
- *
- * @property {object[]} skeleton  — ordered task skeleton steps
- *   @property {string}   id              — unique step identifier
- *   @property {string}   title           — short task name
- *   @property {number}   order           — execution order (1-based)
- *   @property {string[]} dependsOn       — ids this step depends on
- *   @property {string}   action          — independently executable action
- *   @property {string}   expected_output — concrete deliverable after completion
- *   @property {string}   verification    — acceptance signal / validation method
- *   @property {string[]} dependencies    — prerequisite steps/conditions
- *   @property {string[]} blockers        — potential blocking points
- * @property {string}     goal           — distilled goal
- * @property {string[]}   boundaries     — scope boundaries / hard constraints
- * @property {string}     order_rationale — why this ordering
- * @property {string[]}   keyPoints      — extracted key points / main takeaways
- * @property {string[]}   gaps           — identified gaps or unknowns
- * @property {string}     closure_condition — how to determine completion
- * @property {string}     [plan_title]   — suggested plan title (optional)
- * @property {number}     confidence     — LLM confidence estimate (0-1)
- */
-export const BetterPlanOutputSchema = Object.freeze({
-  name: 'BetterPlanOutput',
-  version: '1.1.0',
-  fields: Object.freeze({
-    goal: 'string (required, non-empty)',
-    plan_title: 'string (optional)',
-    boundaries: ['string (non-empty)'],
-    skeleton: [
-      {
-        id: 'string (required)',
-        title: 'string (required)',
-        order: 'number (positive integer)',
-        dependsOn: ['string'],
-        action: 'string (required, executable action)',
-        expected_output: 'string (required, concrete deliverable)',
-        verification: 'string (required, acceptance signal/check)',
-        dependencies: ['string (required, can be empty array)'],
-        blockers: ['string (required, can be empty array)'],
-      },
-    ],
-    keyPoints: ['string'],
-    order_rationale: 'string (required, non-empty)',
-    gaps: ['string'],
-    closure_condition: 'string (required, non-empty)',
-    confidence: 'number (0-1)',
-  }),
-});
-
-// ── Output Validation ────────────────────────────────────────────────────────
-
-function validateSkeletonStep(step, index, errors, path) {
-  const itemPath = `${path}[${index}]`;
-
-  if (!isPlainObject(step)) {
-    pushError(errors, itemPath, 'must be an object');
+function validateFinding(finding, index, errors) {
+  const basePath = `findings[${index}]`;
+  if (!isPlainObject(finding)) {
+    pushError(errors, basePath, 'must be an object');
     return;
   }
-
-  if (!hasText(step.id)) pushError(errors, `${itemPath}.id`, 'is required');
-  if (!hasText(step.title)) pushError(errors, `${itemPath}.title`, 'is required');
-  if (!Number.isFinite(step.order) || step.order <= 0) {
-    pushError(errors, `${itemPath}.order`, 'must be a positive number');
-  }
-  if (!Array.isArray(step.dependsOn)) {
-    pushError(errors, `${itemPath}.dependsOn`, 'must be an array of strings');
-  } else if (!step.dependsOn.every((d) => typeof d === 'string')) {
-    pushError(errors, `${itemPath}.dependsOn`, 'each element must be a string');
-  }
-
-  if (!hasText(step.action)) pushError(errors, `${itemPath}.action`, 'is required');
-  if (!hasText(step.expected_output)) pushError(errors, `${itemPath}.expected_output`, 'is required');
-  if (!hasText(step.verification)) pushError(errors, `${itemPath}.verification`, 'is required');
-
-  if (!Array.isArray(step.dependencies)) {
-    pushError(errors, `${itemPath}.dependencies`, 'must be an array of strings');
-  } else if (!step.dependencies.every((d) => typeof d === 'string')) {
-    pushError(errors, `${itemPath}.dependencies`, 'each element must be a string');
-  }
-
-  if (!Array.isArray(step.blockers)) {
-    pushError(errors, `${itemPath}.blockers`, 'must be an array of strings');
-  } else if (!step.blockers.every((d) => typeof d === 'string')) {
-    pushError(errors, `${itemPath}.blockers`, 'each element must be a string');
-  }
+  if (!FINDING_SEVERITIES.has(finding.severity)) pushError(errors, `${basePath}.severity`, 'must be info|warning|error');
+  if (!FINDING_BASES.has(finding.basis)) pushError(errors, `${basePath}.basis`, 'must be workflow|general');
+  if (!hasText(finding.type)) pushError(errors, `${basePath}.type`, 'is required');
+  if (!hasText(finding.message)) pushError(errors, `${basePath}.message`, 'is required');
+  if (!hasText(finding.suggestion)) pushError(errors, `${basePath}.suggestion`, 'is required');
+  if (finding.source_skill_ref != null && !hasText(finding.source_skill_ref)) pushError(errors, `${basePath}.source_skill_ref`, 'must be a non-empty string when provided');
 }
 
 export function validateBetterPlanOutput(output) {
   const errors = [];
-
   if (!isPlainObject(output)) {
     pushError(errors, '$', 'output must be an object');
     return { valid: false, errors };
   }
 
-  // Required fields
-  if (!hasText(output.goal)) pushError(errors, 'goal', 'is required');
-
-  // boundaries: at least 1 non-empty string
-  if (!Array.isArray(output.boundaries)) {
-    pushError(errors, 'boundaries', 'must be an array');
-  } else if (output.boundaries.length === 0) {
-    pushError(errors, 'boundaries', 'must have at least 1 entry');
-  } else if (!output.boundaries.every((b) => hasText(b))) {
-    pushError(errors, 'boundaries', 'each entry must be a non-empty string');
+  if (!hasText(output.summary)) pushError(errors, 'summary', 'is required');
+  if (!Array.isArray(output.workflowBasis)) {
+    pushError(errors, 'workflowBasis', 'must be an array');
+  } else if (!output.workflowBasis.every((item) => typeof item === 'string')) {
+    pushError(errors, 'workflowBasis', 'must contain only strings');
   }
 
-  // skeleton: at least 1 step
-  if (!Array.isArray(output.skeleton)) {
-    pushError(errors, 'skeleton', 'must be an array');
-  } else if (output.skeleton.length === 0) {
-    pushError(errors, 'skeleton', 'must have at least 1 step');
+  if (!Array.isArray(output.findings) || output.findings.length === 0) {
+    pushError(errors, 'findings', 'must be a non-empty array');
   } else {
-    output.skeleton.forEach((step, index) => validateSkeletonStep(step, index, errors, 'skeleton'));
+    output.findings.forEach((finding, index) => validateFinding(finding, index, errors));
   }
 
-  if (!hasText(output.order_rationale)) pushError(errors, 'order_rationale', 'is required');
-
-  // keyPoints: array (can be empty, but should exist)
-  if (output.keyPoints !== undefined && !Array.isArray(output.keyPoints)) {
-    pushError(errors, 'keyPoints', 'must be an array');
-  }
-
-  // gaps: array (can be empty)
-  if (!Array.isArray(output.gaps)) {
-    pushError(errors, 'gaps', 'must be an array');
-  }
-
-  if (!hasText(output.closure_condition)) pushError(errors, 'closure_condition', 'is required');
-
-  // confidence: number 0-1
   if (typeof output.confidence !== 'number' || output.confidence < 0 || output.confidence > 1) {
     pushError(errors, 'confidence', 'must be a number between 0 and 1');
   }
 
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
+  return { valid: errors.length === 0, errors };
 }
 
 export default {

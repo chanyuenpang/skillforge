@@ -2,18 +2,61 @@
 
 ## Positioning
 
-SkillForge is a workflow compilation layer for agent execution.
+SkillForge is not primarily a user-facing product.
 
-Its current purpose is not to build a large all-in-one skill platform, but to make real tasks more stable by connecting four focused capabilities:
+Its current target user is the agent system itself.
 
-1. `betterPlan`
-2. `betterPrompt`
-3. `skill register`
-4. `log retention and review`
+SkillForge sits inside an agent execution chain and intervenes at two specific moments:
+
+1. after `plan_write`
+2. before `sessionSpawn`
 
 In one sentence:
 
-> SkillForge takes a real task, decomposes it into a plan, grounds the plan with reusable skill knowledge, and produces execution guidance that can be reused, reviewed, and improved from logs.
+> SkillForge is an agent-side planning review and execution routing layer.
+
+It does not currently aim to be a general end-user planning product, because the system still depends on agent-side context that end users do not naturally provide.
+
+## Core Working Scene
+
+The product is designed around an existing agent workflow, not around direct human operation.
+
+The intended chain is:
+
+```text
+User request
+  -> leader agent understands the task
+  -> leader agent calls plan_write
+  -> SkillForge betterPlan reviews the plan
+  -> leader agent executes the plan
+  -> leader agent reaches a task that would normally call sessionSpawn
+  -> SkillForge betterPrompt intercepts the spawn boundary
+  -> SkillForge routes skills dynamically and compiles execution guidance
+  -> downstream executor agent runs the compiled output
+```
+
+This is the current real product scene.
+
+## Production Reality
+
+The repository now includes a `skills/` directory pulled from the current OpenClaw production environment.
+
+This matters because it shows the real shape of the inputs SkillForge must route against.
+
+The important observation is that production skills are not only "capability labels".
+
+They usually carry some combination of:
+
+- trigger cues or applicable scenes
+- role identity such as `skill` or `subagent`
+- standard operating sequence
+- tool or script entrypoints
+- verification steps
+- stop conditions
+- output or report format
+- source-specific constraints
+
+That means SkillForge should treat a skill as an execution asset with workflow structure, not just as descriptive text.
 
 ## Core Problem
 
@@ -22,49 +65,108 @@ The product targets several recurring problems in agent execution:
 1. Reusable workflow knowledge is hidden inside skills, but is not extracted into plan-friendly structure.
 2. Fixed subagents are either too narrow or overloaded with too many backup skills.
 3. Multiple skills often carry their own workflows, which creates step confusion during execution.
-4. Many subagents operate step-by-step without an explicit planning phase, which lowers stability and output quality.
+4. Many agents do not have a strong planning review phase before execution.
+5. Existing spawn flows often assume subagents must be predefined, instead of dynamically composed at execution time.
 
-SkillForge exists to turn skills from static instruction packages into workflow-bearing execution assets.
+SkillForge exists to turn skills from static instruction packages into routing-ready execution assets.
+
+## Product Mainline
+
+The current mainline should be understood as two agent-side interceptors:
+
+```text
+plan_write
+  -> betterPlan review
+
+sessionSpawn
+  -> betterPrompt routing and compilation
+```
+
+Everything else in the current repository exists to support those two moments:
+
+- `skill register` provides retrieval and reference material
+- `log retention and review` preserves evidence for iteration
 
 ## Current Core Capabilities
 
 ### 1. `betterPlan`
 
-`betterPlan` turns a task into a more stable execution structure.
+`betterPlan` is not a planner that writes the plan for the agent.
 
-Its job is to:
+Its current working scene is:
 
-- identify the goal
-- split the goal into milestones
-- split milestones into atomic tasks
-- record constraints, ordering, and completion criteria
+- the agent has already received the user task
+- the agent is creating a plan
+- the agent calls `plan_write`
+- SkillForge receives the plan structure the agent believes is reasonable
+- SkillForge returns a review of that plan
 
-`betterPlan` should not be the place where skill semantics are deeply assembled. Its main responsibility is planning structure.
+So `betterPlan` is a planning review layer, not a planning authoring layer.
+
+Its job is to review:
+
+- workflow skeleton fit
+- structure quality
+- decomposition quality
+- missing constraints
+- missing acceptance criteria
+- missing dependencies
+- task granularity problems
+- likely execution ambiguity
+
+The important nuance is that `betterPlan` should not review plans only against generic planning rules.
+
+It should also use reusable workflow skeletons extracted or retrieved from skills as review evidence.
+
+That means `betterPlan` is best understood as:
+
+- a planning review layer
+- grounded partly in skill-derived workflow skeletons
+- and partly in general planning quality rules
+
+The output should help the leader agent improve the plan before execution begins.
 
 ### 2. `skill register`
 
-The skill register is the searchable source of reusable workflow knowledge.
+The skill register is not primarily a showcase of skills.
 
-Its job is to:
+Its current role is to support dynamic routing at execution time.
 
-- expose registered skills and their metadata
-- support task-time retrieval of relevant skills
-- preserve references needed for later grounding and traceability
+Its job is to provide:
 
-The register is not the planner and not the final prompt generator. It is the retrieval and reference layer.
+- searchable skill references
+- skill metadata usable at routing time
+- reusable workflow signals
+- execution entrypoint hints
+- output and report expectations
+- stop and safety constraints
+- traceable source references
+
+The register is not the planner and not the final execution prompt. It is the routing support layer.
 
 ### 3. `betterPrompt`
 
-`betterPrompt` compiles execution guidance from task context, plan context, and skill context.
+`betterPrompt` is not merely prompt polishing.
+
+Its current working scene is:
+
+- the agent is executing a plan
+- the agent reaches a concrete task, or receives a direct execution instruction
+- the original system would route to a predefined subagent via `sessionSpawn`
+- SkillForge intercepts this moment
+- instead of reusing a predefined subagent, SkillForge performs dynamic skill routing
+- SkillForge consumes the original agent prompt and relevant skill context
+- SkillForge outputs a compiled execution package for a downstream executor agent
+
+So `betterPrompt` is effectively a dynamic subagent compiler.
 
 Its job is to:
 
-- consume task or atomic-task level intent
-- incorporate relevant skill references from the register
-- produce structured execution guidance
-- make subagent execution less improvisational and more step-grounded
-
-This is the closest current capability to dynamic subagent definition.
+- replace fixed subagent routing with dynamic routing
+- match relevant skills at execution time
+- digest the original agent prompt
+- extract or preserve executable workflow structure from routed skills
+- produce execution guidance that a downstream executor can run directly
 
 ### 4. `log retention and review`
 
@@ -73,37 +175,15 @@ Logs are not only for observability. They are future product assets.
 Their job is to retain:
 
 - the original task input
-- `betterPlan` output
+- the plan written by the leader agent
+- the `betterPlan` review output
 - matched or referenced skills
-- `betterPrompt` output
+- the original spawn-side prompt
+- the `betterPrompt` compiled output
 - execution result and output artifacts
 - failures, gaps, and deviations
 
-This is the evidence base for improving planning quality, retrieval quality, and prompt grounding quality over time.
-
-## Product Mainline
-
-The current intended mainline is:
-
-```text
-Real task input
-  -> betterPlan
-  -> skill register lookup
-  -> betterPrompt
-  -> execution
-  -> log retention and review
-```
-
-At a more structural level, the target decomposition chain is:
-
-```text
-Product Goal
-  -> Milestone
-  -> Atomic Task
-  -> Skill-backed Execution Steps
-```
-
-This is the core idea behind the current version of SkillForge.
+This is the evidence base for improving plan review quality, routing quality, and compiled execution quality over time.
 
 ## What SkillForge Is Not Trying To Be Right Now
 
@@ -112,6 +192,7 @@ The current product focus explicitly excludes:
 - a large governance-heavy skill platform
 - a complete approval-centered operating system
 - a broad UI-first platform rewrite
+- a user-facing planning workspace
 - a fully automated long-horizon self-improving agent system
 - a claim that all old roadmap phases remain the active product center
 
@@ -119,45 +200,57 @@ Those may still have value later, but they are not the current product core.
 
 ## Dogfooding Direction
 
-The product should be validated through real task traffic, not abstract architecture alone.
+The product should be validated through real agent traffic, not abstract architecture alone.
 
 Current high-value dogfooding direction:
 
 - connect SkillForge to real external agent workflows
-- keep `betterPlan` and `betterPrompt` on real task paths
-- use log review to discover where planning, retrieval, or grounding breaks down
+- keep `betterPlan` on real `plan_write` events
+- keep `betterPrompt` on real `sessionSpawn` boundaries
+- use logs to discover where review, routing, or compiled execution breaks down
 
 Representative scenario:
 
 - Godot in-game test workflow
 
-Example expected decomposition:
+Why it is valuable:
 
-1. initialize MCP access
-2. verify MCP availability
-3. execute game test steps
-4. enforce step-specific constraints
-5. generate structured report output
+- it has real setup steps
+- it has environment validation
+- it has ordered execution
+- it has step-specific constraints
+- it has structured report expectations
 
-This scenario is useful because it contains setup, verification, execution, constraints, and reporting in one real chain.
+That makes it a strong end-to-end scenario for both planning review and execution routing.
 
 ## Near-Term Success Criteria
 
 The current product should be considered on the right track if it can do the following reliably:
 
-1. convert a real task into stable milestones and atomic tasks
-2. retrieve relevant skills from the register at task time
-3. compile better execution guidance from those skills
-4. reduce subagent step confusion compared with fixed bundled prompts
-5. retain enough logs to review why a run succeeded or failed
+1. improve the quality of agent-authored plans at the `plan_write` stage
+2. dynamically route skills at the `sessionSpawn` stage without relying on predefined subagents
+3. compile more stable execution guidance for a downstream executor agent
+4. reduce step confusion compared with fixed skill bundles
+5. retain enough logs to explain why a run succeeded or failed
+
+6. preserve enough routed skill structure that a downstream executor can follow a stable operating path instead of improvising every step
 
 ## Repository Interpretation
 
 When reading this repository, the recommended interpretation order is:
 
 1. `docs/product-core.md`
-2. `README.md`
-3. implementation under `src/skillforge/`
-4. fixtures and scripts that directly support `betterPlan`, `betterPrompt`, skill retrieval, and log review
+2. `docs/system-framework.md`
+3. `docs/betterprompt-routing-contract-draft.md`
+4. `docs/skill-register-schema-draft.md`
+5. `README.md`
+6. implementation under `src/skillforge/`
+7. real production samples under `skills/`
+8. the remaining fixture skills under `fixtures/`
 
-Older long-form roadmap and phase documents remain useful as historical context, but they should not override this current product core.
+The repository should be interpreted as the minimal core for:
+
+- plan review
+- spawn-time routing
+- execution compilation
+- evidence retention

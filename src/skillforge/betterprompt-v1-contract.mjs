@@ -2,91 +2,123 @@ import { z } from 'zod';
 
 const NonEmptyString = z.string().trim().min(1);
 
-// ── betterPrompt v1 Input Contract ─────────────────────────────────────────
-// Canonical input shape: { prompt: string, goal_hint?: string, skillAssets?: array }
+const CandidateSkillSchema = z.object({
+  id: NonEmptyString,
+  name: NonEmptyString,
+  kind: z.enum(['skill', 'subagent']).default('skill'),
+  description: NonEmptyString,
+  sourceRef: z.object({ path: NonEmptyString }).optional(),
+  requiredTools: z.array(NonEmptyString).optional(),
+  entrypointHints: z.array(NonEmptyString).optional(),
+  reportHints: z.array(NonEmptyString).optional(),
+  stopRuleHints: z.array(NonEmptyString).optional(),
+  constraintHints: z.array(NonEmptyString).optional(),
+  workflowSkeletonSummary: z.string().optional(),
+});
 
 export const BetterPromptV1Input = z.object({
-  prompt: NonEmptyString,
+  rawPrompt: NonEmptyString,
   goal_hint: NonEmptyString.optional(),
-  skillAssets: z.array(z.any()).optional(),
+  taskContext: z.object({
+    taskId: z.string().optional(),
+    title: z.string().optional(),
+    goal: z.string().optional(),
+    constraints: z.array(NonEmptyString).optional(),
+  }).optional(),
+  planContext: z.object({
+    planId: z.string().optional(),
+    milestoneId: z.string().optional(),
+    upstreamDependencies: z.array(NonEmptyString).optional(),
+  }).optional(),
+  projectToolContext: z.array(NonEmptyString).optional(),
+  runtimeToolContext: z.array(NonEmptyString).optional(),
+  candidateSkills: z.array(CandidateSkillSchema).optional(),
 });
 
 export function normalizeBetterPromptV1Input(input) {
-  if (typeof input === 'string') {
-    return { prompt: input };
-  }
+  if (typeof input === 'string') return { rawPrompt: input };
+  if (!input || typeof input !== 'object') return { rawPrompt: '' };
 
-  if (input && typeof input === 'object') {
-    const obj = input;
-    if (typeof obj.prompt === 'string' && obj.prompt.trim().length > 0) {
-      return { prompt: obj.prompt, goal_hint: obj.goal_hint, skillAssets: obj.skillAssets };
-    }
-    if (typeof obj.task?.goal === 'string' && obj.task.goal.trim().length > 0) {
-      return { prompt: obj.task.goal, goal_hint: obj.goal_hint || obj.context?.intent, skillAssets: obj.skillAssets };
-    }
-    if (typeof obj.goal === 'string' && obj.goal.trim().length > 0) {
-      return { prompt: obj.goal, goal_hint: obj.goal_hint, skillAssets: obj.skillAssets };
-    }
-    if (typeof obj.description === 'string' && obj.description.trim().length > 0) {
-      return { prompt: obj.description, goal_hint: obj.goal_hint, skillAssets: obj.skillAssets };
-    }
+  if (typeof input.rawPrompt === 'string' && input.rawPrompt.trim()) return input;
+  if (typeof input.prompt === 'string' && input.prompt.trim()) {
+    return {
+      rawPrompt: input.prompt,
+      goal_hint: input.goal_hint,
+      taskContext: input.taskContext,
+      planContext: input.planContext,
+      candidateSkills: input.candidateSkills || input.skillAssets,
+      projectToolContext: input.projectToolContext,
+      runtimeToolContext: input.runtimeToolContext,
+    };
   }
-
-  return { prompt: '' };
+  if (typeof input.task?.goal === 'string' && input.task.goal.trim()) {
+    return {
+      rawPrompt: input.task.goal,
+      goal_hint: input.goal_hint || input.context?.intent,
+      taskContext: input.taskContext || { goal: input.task.goal },
+      planContext: input.planContext,
+      candidateSkills: input.candidateSkills || input.skillAssets,
+      projectToolContext: input.projectToolContext,
+      runtimeToolContext: input.runtimeToolContext,
+    };
+  }
+  return { rawPrompt: '' };
 }
 
 export function validateBetterPromptV1Input(input) {
   return BetterPromptV1Input.safeParse(normalizeBetterPromptV1Input(input));
 }
 
-// ── betterPrompt v1 Output Contract ────────────────────────────────────────
-
-const DecompositionItemSchema = z.object({
-  source_skill_ref: NonEmptyString,
-  normalized_tag: NonEmptyString,
-});
-
-const SectionsSchema = z.object({
-  goal: NonEmptyString,
-  boundaries: z.array(NonEmptyString).min(1),
-  execution_skeleton: z.array(NonEmptyString).min(1),
-  constraints: z.array(NonEmptyString).min(1),
-  acceptance: z.array(NonEmptyString).min(1),
-  delivery: z.array(NonEmptyString).min(1),
-  output_requirements: z.array(NonEmptyString).min(1),
-});
-
-const TracesSchema = z.object({
-  resolved_skill_ids: z.array(NonEmptyString),
-  semantic_summary: NonEmptyString,
-  assembled_prompt_preview: NonEmptyString,
-});
-
-const QCSchema = z.object({
-  pass: z.boolean(),
-  score: z.number().min(0).max(100),
-  tags: z.array(NonEmptyString),
-  checks: z.array(z.any()),
-  issues: z.array(z.any()),
-});
-
 export const BetterPromptV1Output = z.object({
-  version: z.literal('betterprompt.v1'),
-  contract: z.object({
-    input: NonEmptyString,
-    output: NonEmptyString,
-  }),
+  version: z.literal('betterprompt.v2'),
   input: z.object({
-    prompt: NonEmptyString,
-    goal_hint: NonEmptyString.optional(),
+    rawPrompt: NonEmptyString,
+    goal_hint: z.string().optional(),
   }),
-  output: z.object({
-    sections: SectionsSchema,
-    template: NonEmptyString,
-    decomposition: z.array(DecompositionItemSchema).min(1),
+  routing: z.object({
+    selected: z.array(CandidateSkillSchema),
+    rejected: z.array(z.object({
+      id: NonEmptyString,
+      reason: NonEmptyString,
+    })),
+    rationale: z.array(NonEmptyString).min(1),
+    toolGate: z.object({
+      projectToolContext: z.array(NonEmptyString),
+      runtimeToolContext: z.array(NonEmptyString),
+    }),
   }),
-  traces: TracesSchema,
-  qc: QCSchema,
+  execution: z.object({
+    objective: NonEmptyString,
+    steps: z.array(z.object({
+      id: NonEmptyString,
+      title: NonEmptyString,
+      intent: NonEmptyString,
+      entrypoint: z.string().optional(),
+      checks: z.array(NonEmptyString).min(1),
+    })).min(1),
+    completionCriteria: z.array(NonEmptyString).min(1),
+  }),
+  constraints: z.object({
+    hard: z.array(NonEmptyString),
+    stopRules: z.array(NonEmptyString),
+    nonGoals: z.array(NonEmptyString),
+  }),
+  report: z.object({
+    requiredSections: z.array(NonEmptyString).min(1),
+    artifacts: z.array(NonEmptyString),
+  }),
+  trace: z.object({
+    sourcePromptRef: NonEmptyString,
+    skillRefs: z.array(NonEmptyString).min(1),
+    planId: z.string().nullable().optional(),
+    taskId: z.string().nullable().optional(),
+  }),
+  qc: z.object({
+    pass: z.boolean(),
+    score: z.number().min(0).max(100),
+    tags: z.array(NonEmptyString),
+    issues: z.array(z.string()),
+  }),
 });
 
 export function validateBetterPromptV1Output(output) {

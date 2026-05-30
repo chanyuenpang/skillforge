@@ -20,19 +20,11 @@ SkillForge 的试运行开关和额度不在 `openclaw.json`，而在：
 
 ## 字段说明
 
-- `enabled`
-  - `true`：开启 SkillForge 试运行
-  - `false`：关闭试运行，不触发 `betterPlan` / `betterPrompt`
-
-- `planRemaining`
-  - 控制 `betterPlan` 的剩余触发次数
-  - 每次命中 plan review 前置触发点时先减 1，再调用
-  - 减到 `0` 后自动停止触发
-
-- `promptRemaining`
-  - 控制 `betterPrompt` 的剩余触发次数
-  - 每次命中 `sessions_spawn` 前置触发点时先减 1，再调用
-  - 减到 `0` 后自动停止触发
+| 字段 | 含义 | 备注 |
+|------|------|------|
+| `enabled` | 总开关 | `false` 时完全停用 SkillForge 试运行 |
+| `planRemaining` | `betterPlan` 剩余触发次数 | 每次命中 plan review 前置触发点时先减 1，再调用 |
+| `promptRemaining` | `betterPrompt` 剩余触发次数 | 每次命中 `sessions_spawn` 前置触发点时先减 1，再调用 |
 
 ## 运行语义
 
@@ -48,6 +40,7 @@ SkillForge 的试运行开关和额度不在 `openclaw.json`，而在：
 
 - 计数控制的是**触发次数**，不是成功次数
 - 即使调用失败，也会消耗一次额度
+- 某项计数减到 `0` 后，对应工具会自动停用
 
 ## 如何重置额度
 
@@ -87,3 +80,15 @@ tail ~/.skillforge/execution-log.jsonl
   "output": "..."
 }
 ```
+
+## 相关日志位置
+
+- 工具自身日志：`~/.skillforge/execution-log.jsonl`
+- `betterPlan` 审计日志：`~/.openclaw/runtime/skillforge-betterplan-audit.jsonl`
+- `betterPrompt` 审计日志：`~/.openclaw/runtime/skillforge-betterprompt-audit.jsonl`
+
+## 使用建议
+
+- 先用较小额度验证接入链路是否稳定
+- 需要重新放量时，只改 `planRemaining` 和 `promptRemaining` 即可
+- 修改额度后**不需要重启 gateway**

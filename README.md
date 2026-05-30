@@ -101,6 +101,12 @@ pnpm test:betterplan
 pnpm test:betterprompt
 ```
 
+### OpenClaw Runtime Quota
+
+如果你要通过 OpenClaw 的真实调用链路触发 `betterPlan` / `betterPrompt`，请先看额度配置文档：
+
+- [docs/skillforge-runtime-quota-config.md](D:/Users/chany/Documents/SkillForge/docs/skillforge-runtime-quota-config.md)
+
 ## Core Modules
 
 ### `betterPlan`

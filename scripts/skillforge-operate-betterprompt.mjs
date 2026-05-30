@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 
-import { appendFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { buildBetterPromptV1 } from '../src/skillforge/betterprompt-builder.mjs';
+import { buildRoutedRunRecord, saveRoutedRun } from '../src/skillforge/routed-run-store.mjs';
+
+function inferFailureStage(error) {
+  const stage = error?.meta?.stage || '';
+  if (stage === 'skill_ir_extraction' || stage === 'skill_routing') return 'retrieval';
+  if (stage === 'betterprompt_compilation') return 'compilation';
+  return 'compilation';
+}
 
 function parseArgs(argv) {
   const args = {
@@ -15,7 +21,6 @@ function parseArgs(argv) {
     const token = argv[i];
     if (!token.startsWith('--')) continue;
     const [flag, inlineValue] = token.split('=', 2);
-
     const readValue = () => {
       if (inlineValue !== undefined) return inlineValue;
       const next = argv[i + 1];
@@ -26,10 +31,7 @@ function parseArgs(argv) {
       return '';
     };
 
-    if (token === '--help' || token === '-h') {
-      args.help = true;
-      continue;
-    }
+    if (token === '--help' || token === '-h') args.help = true;
     if (flag === '--prompt') args.prompt = readValue();
     if (flag === '--goal-hint') args.goal_hint = readValue();
   }
@@ -40,9 +42,7 @@ function parseArgs(argv) {
 async function readStdinIfNeeded() {
   if (process.stdin.isTTY) return '';
   let data = '';
-  for await (const chunk of process.stdin) {
-    data += chunk;
-  }
+  for await (const chunk of process.stdin) data += chunk;
   return data.trim();
 }
 
@@ -52,19 +52,8 @@ function printUsage() {
   console.log('  echo "..." | node scripts/skillforge-operate-betterprompt.mjs --goal-hint "..."');
 }
 
-export async function operateBetterPrompt({ prompt = '', goalHint = '' } = {}) {
-  const result = await buildBetterPromptV1({
-    prompt,
-    ...(goalHint ? { goal_hint: goalHint } : {}),
-  });
-  const output = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
-  process.stdout.write(`${output}\n`);
-}
-
 async function main() {
-  const startTime = Date.now();
   const args = parseArgs(process.argv.slice(2));
-
   if (args.help) {
     printUsage();
     return;
@@ -72,31 +61,75 @@ async function main() {
 
   const stdinPrompt = await readStdinIfNeeded();
   const prompt = args.prompt || stdinPrompt;
-
   if (!prompt) {
     printUsage();
     process.exit(1);
   }
 
-  const logPath = `${homedir()}/.skillforge/execution-log.jsonl`;
-  const executionId = `el-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
+  const runId = `bpr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   try {
     const result = await buildBetterPromptV1({
-      prompt,
+      rawPrompt: prompt,
       ...(args.goal_hint ? { goal_hint: args.goal_hint } : {}),
     });
-    const output = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
 
-    const logLine = { ts: new Date().toISOString(), source: 'betterPrompt', input: prompt, output };
-    appendFileSync(logPath, `${JSON.stringify(logLine)}\n`);
+    const routedRun = buildRoutedRunRecord({
+      runId,
+      status: 'success',
+      userRequest: { text: prompt },
+      retrieval: {
+        queryText: prompt,
+        projectToolContext: result.routing.toolGate.projectToolContext,
+        runtimeToolContext: result.routing.toolGate.runtimeToolContext,
+        candidates: result.routing.selected.map((candidate) => ({ id: candidate.id, kind: candidate.kind })),
+        selected: result.routing.selected.map((candidate) => candidate.id),
+        rejected: result.routing.rejected,
+      },
+      compilation: {
+        sourcePrompt: prompt,
+        selectedSkillRefs: result.trace.skillRefs,
+        compiledPackage: {
+          objective: result.execution.objective,
+          steps: result.execution.steps.length,
+          reportSections: result.report.requiredSections,
+        },
+      },
+      diagnosis: {
+        failureStage: result.qc.pass ? null : 'compilation',
+        notes: result.qc.issues,
+      },
+    });
+    saveRoutedRun(routedRun);
 
-    process.stdout.write(`${output}\n`);
+    process.stdout.write(`${JSON.stringify({ ...result, runId }, null, 2)}\n`);
   } catch (error) {
-    const logLine = { ts: new Date().toISOString(), source: 'betterPrompt', input: prompt, error: error.message };
-    appendFileSync(logPath, `${JSON.stringify(logLine)}\n`);
+    saveRoutedRun(buildRoutedRunRecord({
+      runId,
+      status: 'failed',
+      userRequest: { text: prompt },
+      diagnosis: {
+        failureStage: inferFailureStage(error),
+        notes: [error.message],
+        error: {
+          name: error.name,
+          code: error.code || null,
+          meta: error.meta || null,
+        },
+      },
+    }));
     throw error;
   }
 }
 
-main();
+main().catch((error) => {
+  console.error(JSON.stringify({
+    success: false,
+    error: {
+      name: error.name,
+      code: error.code || null,
+      message: error.message,
+      meta: error.meta || null,
+    },
+  }, null, 2));
+  process.exit(2);
+});
