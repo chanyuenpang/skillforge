@@ -49,6 +49,7 @@ If the task is simple, keep it simple.
 
 Return JSON only with:
 - objective: string
+- executionPrompt: string (preferred natural-language guidance for the executor)
 - stepOutline: string[] (optional but preferred)
 - completionCriteria: string[]
 - hardConstraints: string[]
@@ -91,6 +92,31 @@ function firstNonEmpty(...values) {
 function normalizeStringArray(values, fallback = []) {
   const items = Array.isArray(values) ? values : fallback;
   return uniq(items);
+}
+
+function deriveObjective(compiled = {}, input = {}) {
+  return firstNonEmpty(
+    compiled?.execution?.objective,
+    compiled?.execution?.goal,
+    compiled?.objective,
+    input?.taskContext?.goal,
+    input?.goal_hint,
+    input?.rawPrompt,
+  );
+}
+
+function deriveSelectedSkillRefs(routingResult = {}) {
+  return uniq((routingResult.selected || []).map((skill) => skill.sourceRef?.path || skill.id));
+}
+
+function deriveConstraintHints(routingResult = {}) {
+  const selected = routingResult.selected || [];
+  return {
+    hard: uniq(selected.flatMap((skill) => skill.constraintHints || [])),
+    stopRules: uniq(selected.flatMap((skill) => skill.stopRuleHints || [])),
+    reportHints: uniq(selected.flatMap((skill) => skill.reportHints || [])),
+    entrypoints: uniq(selected.flatMap((skill) => skill.entrypointHints || [])),
+  };
 }
 
 function titleFromText(text = '', index = 0) {
@@ -158,6 +184,74 @@ export function normalizeCompiledOutput(compiled = {}) {
       artifacts: normalizeStringArray(compiled.artifacts || report.artifacts || report.outputs || report.deliverables),
     },
   };
+}
+
+function buildDefaultSteps({ objective, rawPrompt, routingResult, compiled }) {
+  const selected = routingResult.selected || [];
+  const constraintHints = deriveConstraintHints(routingResult);
+  const workflowSummaries = uniq(selected.map((skill) => skill.workflowSkeletonSummary).filter(Boolean));
+
+  const defaults = [
+    {
+      id: 'step-1',
+      title: 'Align prerequisites',
+      intent: firstNonEmpty(
+        constraintHints.entrypoints[0],
+        'Check prerequisites, confirm the working context, and prepare the required tools before execution.',
+      ),
+      checks: ['Prerequisites are satisfied and the execution context is ready.'],
+    },
+    {
+      id: 'step-2',
+      title: 'Execute the core task',
+      intent: firstNonEmpty(
+        compiled?.executionPrompt,
+        workflowSummaries[0],
+        objective,
+        rawPrompt,
+      ),
+      checks: ['The main task flow completes and any important observations are recorded.'],
+    },
+    {
+      id: 'step-3',
+      title: 'Report the outcome',
+      intent: 'Summarize the outcome in concise natural language, including evidence, blockers, and any next actions.',
+      checks: ['The final report includes the required evidence and clearly states blockers or follow-up work.'],
+    },
+  ];
+
+  return defaults.map(normalizeCompiledStep);
+}
+
+function deriveCompletionCriteria(compiled, routingResult, objective) {
+  const explicit = normalizeStringArray(
+    compiled.completionCriteria || compiled?.execution?.completionCriteria || compiled?.execution?.doneCriteria || compiled?.execution?.successCriteria,
+  );
+  if (explicit.length > 0) return explicit;
+
+  const reportHints = deriveConstraintHints(routingResult).reportHints;
+  return uniq([
+    firstNonEmpty(objective) ? `The task objective is completed: ${objective}` : '',
+    reportHints.length > 0 ? `The final report covers: ${reportHints.join(', ')}` : 'The final report captures evidence, blockers, and next actions.',
+  ]);
+}
+
+function deriveReportSections(compiled, routingResult) {
+  const explicit = normalizeStringArray(compiled.reportSections || compiled?.report?.requiredSections || compiled?.report?.sections || compiled?.report?.mustInclude);
+  if (explicit.length > 0) return explicit;
+
+  const reportHints = deriveConstraintHints(routingResult).reportHints;
+  if (reportHints.length > 0) return reportHints;
+  return ['Summary', 'Evidence', 'Blockers or next actions'];
+}
+
+function deriveArtifacts(compiled) {
+  return normalizeStringArray(compiled.artifacts || compiled?.report?.artifacts || compiled?.report?.outputs || compiled?.report?.deliverables);
+}
+
+function renderNaturalExecutionPrompt(output, compiled = {}) {
+  if (hasText(compiled?.executionPrompt)) return String(compiled.executionPrompt).trim();
+  return renderExecutorPrompt(output);
 }
 
 function runQc(output) {
@@ -281,6 +375,18 @@ export async function buildBetterPromptV1(input) {
   });
 
   const compiled = normalizeCompiledOutput(llmResult.data);
+  const derivedObjective = deriveObjective(compiled, normalizedInput);
+  const derivedSteps = Array.isArray(compiled?.execution?.steps) && compiled.execution.steps.length > 0
+    ? compiled.execution.steps
+    : buildDefaultSteps({
+        objective: derivedObjective,
+        rawPrompt: normalizedInput.rawPrompt,
+        routingResult,
+        compiled: llmResult.data || {},
+      });
+  const derivedCompletionCriteria = deriveCompletionCriteria(compiled, routingResult, derivedObjective);
+  const derivedReportSections = deriveReportSections(llmResult.data || {}, routingResult);
+  const derivedArtifacts = deriveArtifacts(llmResult.data || {});
   const output = {
     version: 'betterprompt.v2',
     executorPrompt: '',
@@ -298,9 +404,9 @@ export async function buildBetterPromptV1(input) {
       },
     },
     execution: {
-      objective: hasText(compiled?.execution?.objective) ? compiled.execution.objective : '',
-      steps: Array.isArray(compiled?.execution?.steps) ? compiled.execution.steps : [],
-      completionCriteria: Array.isArray(compiled?.execution?.completionCriteria) ? compiled.execution.completionCriteria : [],
+      objective: derivedObjective,
+      steps: derivedSteps,
+      completionCriteria: derivedCompletionCriteria,
     },
     constraints: {
       hard: uniq(compiled?.constraints?.hard || []),
@@ -308,18 +414,18 @@ export async function buildBetterPromptV1(input) {
       nonGoals: uniq(compiled?.constraints?.nonGoals || []),
     },
     report: {
-      requiredSections: uniq(compiled?.report?.requiredSections || []),
-      artifacts: uniq(compiled?.report?.artifacts || []),
+      requiredSections: derivedReportSections,
+      artifacts: derivedArtifacts,
     },
     trace: {
       sourcePromptRef: 'spawn-input',
-      skillRefs: uniq(routingResult.selected.map((skill) => skill.sourceRef?.path || skill.id)),
+      skillRefs: deriveSelectedSkillRefs(routingResult),
       planId: normalizedInput.planContext?.planId || null,
       taskId: normalizedInput.taskContext?.taskId || null,
     },
   };
 
-  output.executorPrompt = renderExecutorPrompt(output);
+  output.executorPrompt = renderNaturalExecutionPrompt(output, llmResult.data || {});
   output.qc = runQc(output);
 
   const validatedOutput = validateBetterPromptV1Output(output);

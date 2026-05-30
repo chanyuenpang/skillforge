@@ -6,7 +6,7 @@ const CandidateSkillSchema = z.object({
   id: NonEmptyString,
   name: NonEmptyString,
   kind: z.enum(['skill', 'subagent']).default('skill'),
-  description: NonEmptyString,
+  description: z.string().optional().default(''),
   sourceRef: z.object({ path: NonEmptyString }).optional(),
   requiredTools: z.array(NonEmptyString).optional(),
   entrypointHints: z.array(NonEmptyString).optional(),
