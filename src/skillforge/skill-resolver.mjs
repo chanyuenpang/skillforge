@@ -108,6 +108,12 @@ Return JSON only with:
 - rejected: { id: string, reason: string }[]
 - rationale: string[]
 
+Critical output rules:
+- selectedIds must copy candidate ids exactly from the list below
+- if the candidate set is non-empty and at least one candidate is plausibly useful, select at least one skill
+- prefer the best available workflow or execution skill rather than returning an empty set
+- only return an empty selectedIds array if every candidate is clearly irrelevant to the task
+
 Task context:
 ${JSON.stringify({
   intent: contextSignals.intent,
@@ -123,6 +129,7 @@ ${JSON.stringify(candidates.map((candidate) => ({
   kind: candidate.kind,
   description: candidate.description,
   applicableScenes: candidate.applicableScenes,
+  triggerHints: candidate.triggerHints,
   requiredTools: candidate.requiredTools,
   entrypointHints: candidate.entrypointHints,
   workflowSkeletonSummary: candidate.workflowSkeletonSummary,
@@ -132,6 +139,8 @@ ${JSON.stringify(candidates.map((candidate) => ({
 Rules:
 - prefer the smallest useful set
 - select up to 4 skills
+- exact candidate id matching is mandatory in selectedIds
+- generic implementation, workflow-shaping, planning, or execution tasks should still choose the closest useful workflow skill
 - preserve skills that provide dominant workflow shape or critical constraints
 - if a candidate is not selected, provide a short reason`;
 }
@@ -279,7 +288,7 @@ export async function resolveSkills({
 
   const lmResult = await callJsonModel({
     stage: 'skill_routing',
-    systemPrompt: 'You perform semantic skill routing over a bounded candidate set. Return JSON only.',
+    systemPrompt: 'You perform semantic skill routing over a bounded candidate set. Return JSON only and copy selectedIds exactly from the candidate list.',
     userPrompt: buildRoutingPrompt(contextSignals, shortlisted),
     maxTokens: 1800,
   });
