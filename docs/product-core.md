@@ -87,6 +87,12 @@ Everything else in the current repository exists to support those two moments:
 - `skill register` provides retrieval and reference material
 - `log retention and review` preserves evidence for iteration
 
+The next product-stage interpretation is important:
+
+- OpenClaw should not remain a permanent “fire-and-forget tryout layer”
+- the next phase goal is to make SkillForge outputs good enough for daily real usage quality
+- that means the evaluation target is no longer “did the call happen” but “was the returned review or compiled package actually worth consuming”
+
 ## Current Core Capabilities
 
 ### 1. `betterPlan`
@@ -209,6 +215,12 @@ Current high-value dogfooding direction:
 - keep `betterPrompt` on real `sessionSpawn` boundaries
 - use logs to discover where review, routing, or compiled execution breaks down
 
+Important shift for the next phase:
+
+- OpenClaw trial invocation is no longer the end goal
+- OpenClaw should become the realism harness for judging whether SkillForge output is strong enough for daily real calls
+- “non-consuming tryout” is now only a temporary safety posture, not the product target
+
 Representative scenario:
 
 - Godot in-game test workflow
@@ -234,6 +246,10 @@ The current product should be considered on the right track if it can do the fol
 5. retain enough logs to explain why a run succeeded or failed
 
 6. preserve enough routed skill structure that a downstream executor can follow a stable operating path instead of improvising every step
+
+For the next phase specifically, an additional success test applies:
+
+7. the observed output quality should become strong enough that the team can seriously consider moving from “trial invoke only” toward real daily consumption, instead of treating OpenClaw as a permanent no-consume harness
 
 ## Repository Interpretation
 

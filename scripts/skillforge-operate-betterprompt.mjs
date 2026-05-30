@@ -10,6 +10,33 @@ function inferFailureStage(error) {
   return 'compilation';
 }
 
+function buildFailureRetrieval(error, prompt) {
+  const routingResult = error?.meta?.routingResult;
+  if (!routingResult) return null;
+
+  return {
+    queryText: prompt,
+    projectToolContext: [],
+    runtimeToolContext: [],
+    candidates: Array.isArray(routingResult.candidates)
+      ? routingResult.candidates.map((candidate) => ({
+          id: candidate.id,
+          kind: candidate.kind,
+          name: candidate.name,
+          requiredTools: candidate.requiredTools || [],
+        }))
+      : [],
+    selected: Array.isArray(routingResult.selected)
+      ? routingResult.selected.map((candidate) => candidate.id)
+      : [],
+    rejected: routingResult.rejected || [],
+    routingRationale: routingResult.routingRationale || [],
+    metadata: routingResult.metadata || null,
+    toolGateSummary: routingResult.toolGateSummary || null,
+    inputContext: routingResult.inputContext || null,
+  };
+}
+
 function parseArgs(argv) {
   const args = {
     prompt: '',
@@ -107,6 +134,7 @@ async function main() {
       runId,
       status: 'failed',
       userRequest: { text: prompt },
+      retrieval: buildFailureRetrieval(error, prompt),
       diagnosis: {
         failureStage: inferFailureStage(error),
         notes: [error.message],

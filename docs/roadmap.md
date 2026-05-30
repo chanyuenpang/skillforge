@@ -20,6 +20,12 @@
 - `betterPlan`：拦在 `plan_write` 之后，做 plan review
 - `betterPrompt`：拦在 `sessionSpawn` 之前，做动态 skill routing 和执行编译
 
+当前要进入的下一阶段是：
+
+- OpenClaw 不再只把 SkillForge 当成“测试调用但不消费结果”的旁路试运行
+- SkillForge 的目标输出质量要提升到足以支撑日常真实调用
+- 关注点从“有没有触发”切换为“输出是否值得被主流程日常依赖”
+
 ## Mainline
 
 ```text
@@ -35,6 +41,21 @@ User request
 ```
 
 ## Near-Term Goals
+
+### 0. Graduate from tryout to production-quality output
+
+目标：
+
+- 把 OpenClaw 当前的非消费式试运行心智切换为质量导向心智
+- 不再以“调用成功/失败不阻断主流程”作为主要成功标准
+- 改为以 `betterPlan` / `betterPrompt` 的输出是否达到日常真实调用质量为主要成功标准
+
+完成判断：
+
+- `betterPlan` 的 review 对 leader agent 的日常计划质量有稳定帮助
+- `betterPrompt` 的 compiled package 对下游执行方有稳定帮助
+- 日志足以解释质量问题来自 review、retrieval、compilation 还是 execution
+- 团队可以开始讨论“何时消费输出”，而不是继续停留在“是否触发”
 
 ### 1. Stabilize `betterPlan`
 
@@ -100,6 +121,7 @@ User request
 - 恢复审批中心 / run center / 复杂治理系统
 - 提前宣称自动化长期自优化能力
 - 为了“完整”而恢复已收缩掉的历史设计
+- 继续把 OpenClaw 只当成“无消费行为的测试调用”终点状态
 
 ## Recommended Working Order
 

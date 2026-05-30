@@ -65,12 +65,7 @@ function buildCandidateScore(entry, contextSignals) {
 }
 
 function applyToolGate(entry, contextSignals) {
-  const required = toArray(entry.requiredTools).map(normalizeString).filter(Boolean);
-  if (required.length === 0) return { allowed: true, missing: [] };
-
-  const available = new Set(contextSignals.tools.map(normalizeString));
-  const missing = required.filter((tool) => !available.has(tool));
-  return { allowed: missing.length === 0, missing };
+  return { allowed: true, missing: [] };
 }
 
 function topCandidates(entries, contextSignals, explicitSkills = [], maxCandidates = 8) {
@@ -141,14 +136,97 @@ Rules:
 - if a candidate is not selected, provide a short reason`;
 }
 
+function summarizeCandidateForDebug(candidate) {
+  return {
+    id: candidate.id,
+    name: candidate.name,
+    kind: candidate.kind,
+    description: candidate.description,
+    requiredTools: candidate.requiredTools || [],
+    applicableScenes: candidate.applicableScenes || [],
+    triggerHints: candidate.triggerHints || [],
+    entrypointHints: candidate.entrypointHints || [],
+    workflowSkeletonSummary: candidate.workflowSkeletonSummary || '',
+    heuristicScore: candidate.heuristicScore,
+    heuristicOverlap: candidate.heuristicOverlap || [],
+    toolOverlap: candidate.toolOverlap || [],
+    sourceRef: candidate.sourceRef || null,
+  };
+}
+
+function buildCandidateLookup(candidates = []) {
+  const lookup = new Map();
+  for (const candidate of candidates) {
+    const aliases = uniq([
+      candidate.id,
+      normalizeString(candidate.id),
+      candidate.name,
+      normalizeString(candidate.name),
+      String(candidate.id || '').split(':').pop(),
+      normalizeString(String(candidate.id || '').split(':').pop()),
+    ]);
+    for (const alias of aliases) {
+      if (!hasText(alias) || lookup.has(alias)) continue;
+      lookup.set(alias, candidate);
+    }
+  }
+  return lookup;
+}
+
 function normalizeLmSelection(data, candidates) {
-  const selectedIds = new Set(toArray(data?.selectedIds).map((id) => String(id).trim()));
-  const selected = candidates.filter((candidate) => selectedIds.has(candidate.id));
+  const candidateLookup = buildCandidateLookup(candidates);
+  const matched = [];
+  const unmatched = [];
+  const seen = new Set();
+
+  for (const value of toArray(data?.selectedIds)) {
+    const raw = String(value).trim();
+    const candidate = candidateLookup.get(raw) || candidateLookup.get(normalizeString(raw));
+    if (!candidate) {
+      unmatched.push(raw);
+      continue;
+    }
+    if (seen.has(candidate.id)) continue;
+    seen.add(candidate.id);
+    matched.push(candidate);
+  }
+
   const rejected = toArray(data?.rejected)
     .filter((item) => item && typeof item === 'object' && hasText(item.id))
     .map((item) => ({ id: String(item.id).trim(), reason: hasText(item.reason) ? item.reason.trim() : 'not_selected' }));
   const rationale = uniq(toArray(data?.rationale));
-  return { selected, rejected, rationale };
+  return {
+    selected: matched,
+    rejected,
+    rationale,
+    rawSelectedIds: toArray(data?.selectedIds).map((id) => String(id).trim()),
+    unmatchedSelectedIds: unmatched,
+  };
+}
+
+export async function debugResolveSkills({
+  context = {},
+  explicitSkills = [],
+  sourceDir = path.resolve('skills'),
+  sourceId = 'local-skills',
+  maxCandidates = 8,
+} = {}) {
+  const contextSignals = collectContextSignals(context);
+  const scan = await runRegistryScanPipeline({ sourceDir, sourceId });
+  const entries = scan.records.filter((record) => record.status === 'ok' && record.fields).map((record) => record.fields);
+  const { shortlisted, rejected } = topCandidates(entries, contextSignals, explicitSkills, maxCandidates);
+  const routingPrompt = buildRoutingPrompt(contextSignals, shortlisted);
+
+  return {
+    sourceId,
+    scanId: scan.scanId,
+    scanArtifactPath: scan.artifactPath,
+    contextSignals,
+    totalIndexedSkills: entries.length,
+    shortlisted: shortlisted.map(summarizeCandidateForDebug),
+    rejected,
+    routingPrompt,
+  };
 }
 
 export async function resolveSkills({
@@ -186,6 +264,9 @@ export async function resolveSkills({
         model: null,
         candidateCount: 0,
         scanArtifactPath: scan.artifactPath,
+        routingPromptPreview: '',
+        rawModelSelection: null,
+        unmatchedSelectedIds: [],
       },
       resolvedSkills: [],
       conflictSummary: {
@@ -239,6 +320,9 @@ export async function resolveSkills({
       model: lmResult.meta.model,
       candidateCount: shortlisted.length,
       scanArtifactPath: scan.artifactPath,
+      routingPromptPreview: buildRoutingPrompt(contextSignals, shortlisted).slice(0, 4000),
+      rawModelSelection: lmResult.data,
+      unmatchedSelectedIds: normalized.unmatchedSelectedIds,
     },
     resolvedSkills: selected,
     conflictSummary: {

@@ -74,6 +74,24 @@ function runQc(output) {
   };
 }
 
+function createRoutingFailure(routingResult, message = 'betterPrompt routing failed: no skills were selected for compilation') {
+  const error = new Error(message);
+  error.code = 'BETTERPROMPT_ROUTING_EMPTY';
+  error.meta = {
+    stage: 'skill_routing',
+    routingResult: {
+      candidates: routingResult.candidates || [],
+      selected: routingResult.selected || [],
+      rejected: routingResult.rejected || [],
+      routingRationale: routingResult.routingRationale || [],
+      metadata: routingResult.metadata || null,
+      toolGateSummary: routingResult.toolGateSummary || null,
+      inputContext: routingResult.inputContext || null,
+    },
+  };
+  return error;
+}
+
 export async function buildBetterPromptV1(input) {
   const validated = validateBetterPromptV1Input(input);
   if (!validated.success) {
@@ -103,7 +121,7 @@ export async function buildBetterPromptV1(input) {
       });
 
   if (!Array.isArray(routingResult.selected) || routingResult.selected.length === 0) {
-    throw new Error('betterPrompt routing failed: no skills were selected for compilation');
+    throw createRoutingFailure(routingResult);
   }
 
   const llmResult = await callJsonModel({
