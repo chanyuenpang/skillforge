@@ -35,6 +35,8 @@ const TAG_TYPE_WEIGHT = Object.freeze({
   tool: 2.5,
   artifact_target: 1.5,
   agent_archetype: 1,
+  skill_role: 2,
+  skill_category: 1.5,
   open_tag: 1.5,
 });
 
@@ -44,6 +46,8 @@ function registryEntryToSkillFields(entry) {
     id: entry.registryId,
     name: entry.name,
     kind: entry.skillKind === 'subagent' ? 'subagent' : 'skill',
+    skillRole: hasText(profile.skillRole) ? profile.skillRole.trim() : 'reference',
+    skillCategory: hasText(profile.skillCategory) ? profile.skillCategory.trim() : 'general',
     description: entry.description,
     sourceRef: entry.sourceRef || { path: null },
     applicableScenes: uniq(profile.applicableScenes || []),
@@ -124,6 +128,8 @@ function scoreDirectSkillOverlap(skill, taskRecord, context = {}) {
     ['requiredTools', skill.requiredTools || []],
     ['toolSignals', skill.toolSignals || []],
     ['tags', skill.tags || []],
+    ['skillRole', [skill.skillRole || '']],
+    ['skillCategory', [skill.skillCategory || '']],
   ];
 
   for (const [field, values] of fieldMatches) {
@@ -142,6 +148,33 @@ function scoreDirectSkillOverlap(skill, taskRecord, context = {}) {
   }
 
   return { score, matchedFields };
+}
+
+function scoreRoleBoost(skill, taskRecord = {}) {
+  const taskTypes = toArray(taskRecord.taskTypes).map(normalizeString);
+  const workflowStages = toArray(taskRecord.workflowStages).map(normalizeString);
+  const role = normalizeString(skill.skillRole);
+  const category = normalizeString(skill.skillCategory);
+  const boosts = [];
+  let score = 0;
+
+  const isCodeExecutionTask = taskTypes.some((item) => /code|implementation|develop|modify|execution/.test(item))
+    || workflowStages.some((item) => /implementation|development|execution/.test(item));
+
+  if (isCodeExecutionTask && role === 'primary') {
+    boosts.push({ kind: 'skillRole', value: 'primary', weight: 3 });
+    score += 3;
+  }
+  if (isCodeExecutionTask && category === 'execution') {
+    boosts.push({ kind: 'skillCategory', value: 'execution', weight: 2 });
+    score += 2;
+  }
+  if (isCodeExecutionTask && role === 'tooling') {
+    boosts.push({ kind: 'skillRole', value: 'tooling', weight: 1 });
+    score += 1;
+  }
+
+  return { boosts, score };
 }
 
 function scoreTagHits(skillId, anchors, tagMaps, linksByTagId) {
@@ -249,6 +282,7 @@ export function recallSkillBundle({
 
     const direct = scoreDirectSkillOverlap(entry, taskRecord, context);
     const tagHit = scoreTagHits(entry.id, anchors, tagMaps, linksByTagId);
+    const roleBoost = scoreRoleBoost(entry, taskRecord);
     const scopeBoosts = [];
     let scopeScore = 0;
 
@@ -257,7 +291,7 @@ export function recallSkillBundle({
       scopeScore += 3;
     }
 
-    const finalScore = direct.score + tagHit.score + scopeScore;
+    const finalScore = direct.score + tagHit.score + scopeScore + roleBoost.score;
     if (finalScore <= 0) {
       rejected.push({ id: entry.id, reason: 'no_anchor_match' });
       continue;
@@ -270,7 +304,7 @@ export function recallSkillBundle({
         matchedTags: tagHit.matchedTags,
         matchedAliases: tagHit.matchedAliases,
         scopeBoosts,
-        relationBoosts: tagHit.relationBoosts,
+        relationBoosts: [...tagHit.relationBoosts, ...roleBoost.boosts],
         finalScore,
       },
       heuristicScore: finalScore,

@@ -44,6 +44,10 @@ function stringifyJson(value) {
   return JSON.stringify(value ?? {});
 }
 
+function hasText(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
 export function openRelationalIndexDb(dbPath = RELATIONAL_INDEX_PATH) {
   ensureDbDir(dbPath);
   const db = new DatabaseSync(dbPath);
@@ -239,6 +243,12 @@ export function normalizeTagRecords(entry) {
     updated_at: nowIso(),
   });
 
+  if (hasText(profile.skillRole)) {
+    tags.push(makeTag(profile.skillRole, 'skill_role', `Skill role extracted from skill ${entry.name}`, 'routingProfile.skillRole'));
+  }
+  if (hasText(profile.skillCategory)) {
+    tags.push(makeTag(profile.skillCategory, 'skill_category', `Skill category extracted from skill ${entry.name}`, 'routingProfile.skillCategory'));
+  }
   for (const tag of profile.tags || []) {
     tags.push(makeTag(tag, 'open_tag', `Open tag extracted from skill ${entry.name}`, 'routingProfile.tags'));
   }

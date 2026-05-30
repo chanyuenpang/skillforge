@@ -23,6 +23,8 @@ function makeRegistryEntry(overrides = {}) {
     description: 'Review browser flows and report findings.',
     sourceRef: { path: '/skills/browser-review/SKILL.md' },
     routingProfile: {
+      skillRole: 'verification',
+      skillCategory: 'review',
       applicableScenes: ['browser review'],
       triggerHints: ['review browser', 'inspect ui'],
       requiredTools: ['browseros-cli'],
@@ -67,6 +69,8 @@ test('loadIndexSnapshot returns normalized skill entries from sqlite', () => {
   assert.equal(snapshot.entries[0].id, 'local-skills:browser-review');
   assert.deepEqual(snapshot.entries[0].requiredTools, ['browseros-cli']);
   assert.deepEqual(snapshot.entries[0].tags, ['review', 'browser']);
+  assert.equal(snapshot.entries[0].skillRole, 'verification');
+  assert.equal(snapshot.entries[0].skillCategory, 'review');
 });
 
 test('recallSkillBundle boosts skills through tag and tool matches', () => {
@@ -125,6 +129,109 @@ test('recallSkillBundle boosts skills through tag and tool matches', () => {
   assert.equal(result.shortlisted[0].id, 'local-skills:browser-review');
   assert.ok(result.shortlisted[0].recallExplain.finalScore > 0);
   assert.ok(result.shortlisted[0].recallExplain.matchedTags.length > 0);
+});
+
+test('recallSkillBundle prefers primary execution skills for code modification tasks while keeping complementary skills', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'skillforge-recall-'));
+  const dbPath = path.join(dir, 'index.sqlite');
+  const { db } = openRelationalIndexDb(dbPath);
+  ensureRelationalIndexSchema(db);
+
+  const primaryEntry = makeRegistryEntry({
+    registryId: 'local-skills:coding-agent-workflow',
+    name: 'coding-agent-workflow',
+    skillKind: 'subagent',
+    description: 'Core execution workflow for code modifications and implementation tasks.',
+    sourceRef: { path: '/skills/coding-agent-workflow/SKILL.md' },
+    routingProfile: {
+      skillRole: 'primary',
+      skillCategory: 'execution',
+      applicableScenes: ['code modification', 'implementation'],
+      triggerHints: ['modify code', 'implementation task', 'compiler change'],
+      requiredTools: ['Edit', 'Read', 'Bash'],
+      toolSignals: ['edit', 'code'],
+      entrypointHints: ['inspect file', 'edit code'],
+      toolFamilies: ['editor'],
+      reportHints: ['change-summary'],
+      stopRuleHints: ['stop-on-blocker'],
+      constraintHints: ['minimal-change'],
+      workflowSkeletonSummary: 'Read the target file, make the code change, then validate the result.',
+      tags: ['code', 'implementation', 'compiler'],
+    },
+  });
+
+  const toolingEntry = makeRegistryEntry({
+    registryId: 'local-skills:new-asset-creator',
+    name: 'new-asset-creator',
+    description: 'Asset creation workflow that interacts with compile.py and compile validation.',
+    sourceRef: { path: '/skills/new-asset-creator/SKILL.md' },
+    routingProfile: {
+      skillRole: 'tooling',
+      skillCategory: 'project',
+      applicableScenes: ['asset compile validation'],
+      triggerHints: ['compile.py', 'asset compile'],
+      requiredTools: ['python-script'],
+      toolSignals: ['compile.py'],
+      entrypointHints: ['run compile'],
+      toolFamilies: ['compiler'],
+      reportHints: ['validation-result'],
+      stopRuleHints: ['stop-on-compile-failure'],
+      constraintHints: ['do-not-edit-tres'],
+      workflowSkeletonSummary: 'Create or adjust asset sources, then run compile validation.',
+      tags: ['compiler', 'asset', 'compile'],
+    },
+  });
+
+  for (const entry of [primaryEntry, toolingEntry]) {
+    const record = normalizeSkillRecord(entry, { scanId: 'scan_test', sourceId: 'local-skills' });
+    upsertSkillRecord(db, record);
+    for (const tagRecord of normalizeTagRecords(entry)) {
+      upsertTagRecord(db, tagRecord);
+      linkSkillTag(db, {
+        skillId: record.id,
+        tagId: tagRecord.id,
+        matchKind: 'direct',
+        weight: 1,
+        source: 'test',
+      });
+    }
+  }
+
+  writeIndexMeta(db, {
+    indexVersion: '1',
+    schemaVersion: '1',
+    builtAt: '2026-05-30T00:00:00.000Z',
+    sourceId: 'local-skills',
+    scanId: 'scan_test',
+    skillCount: 2,
+    tagCount: 8,
+    relationCount: 6,
+    buildMode: 'full-rebuild',
+  });
+
+  const snapshot = loadIndexSnapshot({ dbPath });
+  const result = recallSkillBundle({
+    snapshot,
+    taskRecord: {
+      summary: 'Modify compiler/compile.py to add duplicate id detection',
+      projectScope: null,
+      taskTypes: ['code-modification', 'implementation'],
+      workflowStages: ['implementation'],
+      artifactTargets: ['compiler/compile.py'],
+      toolHints: ['Edit'],
+      agentArchetypes: ['developer'],
+      constraints: ['minimal-change'],
+      reportExpectations: ['change-summary'],
+      openTags: ['compiler'],
+    },
+    context: {},
+    maxCandidates: 5,
+  });
+
+  assert.equal(result.shortlisted.length, 2);
+  assert.equal(result.shortlisted[0].id, 'local-skills:coding-agent-workflow');
+  assert.equal(result.shortlisted[0].skillRole, 'primary');
+  assert.equal(result.shortlisted[1].skillRole, 'tooling');
 });
 
 test('recallSkillBundle can recover browser skills from natural-language summary without explicit tools', () => {

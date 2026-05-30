@@ -21,6 +21,8 @@ function summarizeCandidate(candidate) {
     id: candidate.id,
     name: candidate.name,
     kind: candidate.kind,
+    skillRole: candidate.skillRole || 'reference',
+    skillCategory: candidate.skillCategory || 'general',
     description: candidate.description,
     requiredTools: candidate.requiredTools || [],
     entrypointHints: candidate.entrypointHints || [],

@@ -99,6 +99,24 @@ function normalizeRequiredTools(toolSignals = []) {
   return [...tools];
 }
 
+function inferSkillRole({ kind, name = '', description = '', rawText = '' }) {
+  const corpus = `${name}\n${description}\n${rawText}`.toLowerCase();
+  if (/review|verify|validation|debug|test|evidence|诊断|验证|reviewer/.test(corpus)) return 'verification';
+  if (/browseros|playwright|gitnexus|mcp|tool|cli|compile\.py|编译/.test(corpus)) return 'tooling';
+  if (kind === 'subagent' || /coding|implementation|executor|workflow|开发|代码修改|执行/.test(corpus)) return 'primary';
+  if (/tiny-world|mission-control|project|项目/.test(corpus)) return 'project-scoped';
+  return 'reference';
+}
+
+function inferSkillCategory({ name = '', description = '', rawText = '' }) {
+  const corpus = `${name}\n${description}\n${rawText}`.toLowerCase();
+  if (/review|verify|validation|debug|test|evidence|诊断|验证/.test(corpus)) return 'review';
+  if (/browseros|playwright|gitnexus|mcp|tool|cli|compile\.py|编译/.test(corpus)) return 'tooling';
+  if (/coding|implementation|executor|workflow|开发|代码修改|执行/.test(corpus)) return 'execution';
+  if (/tiny-world|mission-control|project|项目/.test(corpus)) return 'project';
+  return 'reference';
+}
+
 function heuristicSkillIr({ skillId, filePath, frontmatter, rawText }) {
   const kind = frontmatter?.['metadata']?.includes?.('subagent')
     ? 'subagent'
@@ -110,6 +128,8 @@ function heuristicSkillIr({ skillId, filePath, frontmatter, rawText }) {
     : firstMatchingLine(rawText, [/^#\s+/, /适用场景/i, /Usage/i]).replace(/^#\s+/, '');
   const toolSignals = collectToolSignals(rawText);
   const requiredTools = normalizeRequiredTools(toolSignals);
+  const skillRole = inferSkillRole({ kind, name: frontmatter.name || path.basename(path.dirname(filePath)), description, rawText });
+  const skillCategory = inferSkillCategory({ name: frontmatter.name || path.basename(path.dirname(filePath)), description, rawText });
   const reportLine = firstMatchingLine(rawText, [/输出格式/i, /Output/i, /report/i]);
   const stopLine = firstMatchingLine(rawText, [/失败处理/i, /stop/i, /fail-fast/i, /不要/i, /must not/i]);
   const sceneLine = firstMatchingLine(rawText, [/适用场景/i, /Usage/i, /场景/i]);
@@ -119,6 +139,8 @@ function heuristicSkillIr({ skillId, filePath, frontmatter, rawText }) {
     id: skillId,
     name: frontmatter.name || path.basename(path.dirname(filePath)),
     kind,
+    skillRole,
+    skillCategory,
     version: frontmatter.version || null,
     description: hasText(description) ? description : `Skill entry from ${path.basename(path.dirname(filePath))}`,
     sourceRef: { path: path.relative(process.cwd(), filePath) },
@@ -162,6 +184,8 @@ Return a JSON object with:
 - id
 - name
 - kind ("skill" or "subagent")
+- skillRole
+- skillCategory
 - version
 - description
 - applicableScenes (string[])
@@ -181,6 +205,8 @@ Rules:
 - infer structure from messy text when needed
 - preserve only routing-relevant information
 - do not invent tools not supported by the source
+- skillRole should usually be one of: primary, tooling, verification, project-scoped, reference
+- skillCategory should usually be one of: execution, tooling, review, project, reference
 - if uncertain, keep fields short or empty rather than hallucinating`;
 }
 
@@ -190,6 +216,8 @@ function normalizeExtractedEntry(entry, heuristic, filePath) {
     id: hasText(obj.id) ? String(obj.id).trim() : heuristic.id,
     name: hasText(obj.name) ? String(obj.name).trim() : heuristic.name,
     kind: obj.kind === 'subagent' ? 'subagent' : 'skill',
+    skillRole: hasText(obj.skillRole) ? String(obj.skillRole).trim() : heuristic.skillRole,
+    skillCategory: hasText(obj.skillCategory) ? String(obj.skillCategory).trim() : heuristic.skillCategory,
     version: hasText(obj.version) ? String(obj.version).trim() : heuristic.version,
     description: hasText(obj.description) ? String(obj.description).trim() : heuristic.description,
     sourceRef: { path: path.relative(process.cwd(), filePath) },
@@ -212,6 +240,8 @@ function validateSkillIr(entry) {
   if (!hasText(entry?.id)) errors.push({ code: 'INVALID_ID', message: 'id is required' });
   if (!hasText(entry?.name)) errors.push({ code: 'INVALID_NAME', message: 'name is required' });
   if (!hasText(entry?.description)) errors.push({ code: 'INVALID_DESCRIPTION', message: 'description is required' });
+  if (!hasText(entry?.skillRole)) errors.push({ code: 'INVALID_SKILL_ROLE', message: 'skillRole is required' });
+  if (!hasText(entry?.skillCategory)) errors.push({ code: 'INVALID_SKILL_CATEGORY', message: 'skillCategory is required' });
   if (!hasText(entry?.sourceRef?.path)) errors.push({ code: 'INVALID_SOURCE_REF', message: 'sourceRef.path is required' });
   if (!['skill', 'subagent'].includes(entry?.kind)) errors.push({ code: 'INVALID_KIND', message: 'kind must be skill|subagent' });
   return errors;

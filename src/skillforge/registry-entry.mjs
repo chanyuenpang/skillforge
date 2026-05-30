@@ -39,6 +39,8 @@ export function createRegistryEntry(skillIr, registryInputs = {}) {
     description: hasText(skillIr.description) ? skillIr.description : '',
     sourceRef: isPlainObject(skillIr.sourceRef) ? { ...skillIr.sourceRef } : { path: null },
     routingProfile: {
+      skillRole: hasText(skillIr.skillRole) ? skillIr.skillRole.trim() : 'reference',
+      skillCategory: hasText(skillIr.skillCategory) ? skillIr.skillCategory.trim() : 'general',
       applicableScenes: uniq(skillIr.applicableScenes || []),
       triggerHints: uniq(skillIr.triggerHints || []),
       requiredTools: uniq(skillIr.requiredTools || []),
@@ -85,6 +87,12 @@ export function validateRegistryEntry(record) {
   if (!isPlainObject(record.routingProfile)) {
     pushError(errors, 'routingProfile', 'is required and must be an object');
   } else {
+    if (record.routingProfile.skillRole != null && !hasText(record.routingProfile.skillRole)) {
+      pushError(errors, 'routingProfile.skillRole', 'must be a non-empty string when provided');
+    }
+    if (record.routingProfile.skillCategory != null && !hasText(record.routingProfile.skillCategory)) {
+      pushError(errors, 'routingProfile.skillCategory', 'must be a non-empty string when provided');
+    }
     const arrayFields = [
       'applicableScenes',
       'triggerHints',

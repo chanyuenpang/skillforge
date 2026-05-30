@@ -125,6 +125,12 @@ Critical output rules:
 - if the candidate set is non-empty and at least one candidate is plausibly useful, select at least one skill
 - prefer the best available workflow or execution skill rather than returning an empty set
 - only return an empty selectedIds array if every candidate is clearly irrelevant to the task
+- prefer a small useful bundle over a single skill when the roles are complementary
+- when available, aim for:
+  - one primary execution skill
+  - optionally one tooling or project-scoped support skill
+  - optionally one verification skill
+- avoid selecting multiple skills with the same role unless they are clearly complementary
 
 Task context:
 ${JSON.stringify({
@@ -139,6 +145,8 @@ ${JSON.stringify(candidates.map((candidate) => ({
   id: candidate.id,
   name: candidate.name,
   kind: candidate.kind,
+  skillRole: candidate.skillRole || 'reference',
+  skillCategory: candidate.skillCategory || 'general',
   description: candidate.description,
   applicableScenes: candidate.applicableScenes,
   triggerHints: candidate.triggerHints,
@@ -150,10 +158,11 @@ ${JSON.stringify(candidates.map((candidate) => ({
 
 Rules:
 - prefer the smallest useful set
-- select up to 4 skills
+- select 1 to 4 skills
 - exact candidate id matching is mandatory in selectedIds
 - generic implementation, workflow-shaping, planning, or execution tasks should still choose the closest useful workflow skill
 - preserve skills that provide dominant workflow shape or critical constraints
+- if a primary execution skill exists for the task, strongly prefer including it
 - if a candidate is not selected, provide a short reason`;
 }
 
@@ -162,6 +171,8 @@ function summarizeCandidateForDebug(candidate) {
     id: candidate.id,
     name: candidate.name,
     kind: candidate.kind,
+    skillRole: candidate.skillRole || 'reference',
+    skillCategory: candidate.skillCategory || 'general',
     description: candidate.description,
     requiredTools: candidate.requiredTools || [],
     applicableScenes: candidate.applicableScenes || [],
