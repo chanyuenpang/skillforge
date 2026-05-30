@@ -58,6 +58,19 @@ They usually carry some combination of:
 
 That means SkillForge should treat a skill as an execution asset with workflow structure, not just as descriptive text.
 
+There is one more important distinction:
+
+- some skills are domain execution assets
+- some skills should be treated as system skills for the model itself
+
+Current system-skill examples:
+
+- task interpretation
+- betterPlan review
+- betterPrompt compilation
+
+These should be understood as program design assets for LLM behavior, not merely prompt snippets.
+
 ## Core Problem
 
 The product targets several recurring problems in agent execution:
@@ -86,6 +99,7 @@ Everything else in the current repository exists to support those two moments:
 
 - `skill register` provides retrieval and reference material
 - `log retention and review` preserves evidence for iteration
+- `system skills` provide fixed model-facing programs for interpretation, review, and compilation
 
 The next product-stage interpretation is important:
 
@@ -270,3 +284,4 @@ The repository should be interpreted as the minimal core for:
 - spawn-time routing
 - execution compilation
 - evidence retention
+- system-skill based LLM programming

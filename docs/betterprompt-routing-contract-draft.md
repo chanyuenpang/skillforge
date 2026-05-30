@@ -92,6 +92,18 @@ But those expectations should be expressed as part of the skill-guided prompt de
 
 The program layer may still keep lightweight trace and routing metadata, but the actual execution guidance should remain model-authored natural language.
 
+Any schema used here should stay lightweight.
+
+Its purpose is:
+
+1. persistence
+2. basic validation
+3. lightweight normalization
+
+It should not become the main way we force semantic precision onto the model.
+
+Semantic precision should come mainly from the `betterprompt-compilation-skill` itself.
+
 The working package should therefore include:
 
 ### 1. Routing Result

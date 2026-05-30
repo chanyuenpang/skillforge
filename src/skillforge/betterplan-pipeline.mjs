@@ -1,6 +1,7 @@
 import { validateBetterPlanInput, validateBetterPlanOutput } from './betterplan-contract.mjs';
 import { callJsonModel } from './llm-json.mjs';
 import { resolveSkills } from './skill-resolver.mjs';
+import { BETTERPLAN_REVIEW_SKILL } from './system-skills.mjs';
 
 const DEFAULT_MAX_OUTPUT_TOKENS = 2200;
 const MAX_PLAN_CHARS = 24000;
@@ -30,37 +31,7 @@ function buildReviewPrompt(planText, goalHint, routingResult) {
     entrypointHints: skill.entrypointHints,
     requiredTools: skill.requiredTools,
   }));
-
-  return `You are reviewing a plan written by an agent.
-
-Return JSON only with:
-- reviewText: string
-- summary: string
-- workflowBasis: string[]
-- findings: { severity, basis, type, message, suggestion, source_skill_ref? }[]
-- confidence: number
-
-Goal hint:
-${hasText(goalHint) ? goalHint : '(none)'}
-
-Workflow basis from relevant skills:
-${JSON.stringify(workflowBasis, null, 2)}
-
-Plan text:
----
-${planText}
----
-
-Review this like a planning-review skill:
-- do not rewrite the whole plan
-- produce a direct natural-language review that an agent can immediately act on
-- review from two angles:
-  1. workflow-grounded review based on the retrieved workflow basis
-  2. general planning review based on constraints, dependencies, done criteria, granularity, and ambiguity
-- keep feedback concise, actionable, and execution-oriented
-- return at least 2 findings unless the plan is exceptionally complete
-- use basis=workflow when the issue is derived from workflow skeleton expectations
-- use basis=general for broader planning quality issues`;
+  return BETTERPLAN_REVIEW_SKILL.buildUserPrompt(planText, hasText(goalHint) ? goalHint : '(none)', workflowBasis);
 }
 
 function normalizeReview(raw) {
@@ -139,7 +110,7 @@ export async function runBetterPlan(input) {
 
   const llmResult = await callJsonModel({
     stage: 'betterplan_review',
-    systemPrompt: 'You are a plan-review skill for agent-authored plans. Review against workflow expectations and planning quality, then return JSON only.',
+    systemPrompt: BETTERPLAN_REVIEW_SKILL.systemPrompt,
     userPrompt: buildReviewPrompt(planText, input.goal_hint, routingResult),
     maxTokens: Number.isFinite(input.max_tokens) ? input.max_tokens : DEFAULT_MAX_OUTPUT_TOKENS,
   });

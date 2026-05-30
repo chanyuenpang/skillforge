@@ -5,6 +5,7 @@ import {
 } from './betterprompt-v1-contract.mjs';
 import { resolveSkills } from './skill-resolver.mjs';
 import { callJsonModel } from './llm-json.mjs';
+import { BETTERPROMPT_COMPILATION_SKILL } from './system-skills.mjs';
 
 function hasText(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -32,54 +33,11 @@ function summarizeCandidate(candidate) {
 }
 
 function buildCompilationPrompt(input, routingResult) {
-  return `You are a prompt-compilation skill for a general downstream executor.
-
-Your job is to digest the current task together with the routed skills, then produce guidance that a general executor agent can directly follow.
-
-Think like this:
-- what is the real objective
-- what workflow shape should be preserved
-- what tool or entrypoint expectations matter
-- what must be checked before or during execution
-- what should the final report contain
-
-Keep the output lightweight.
-Do not over-engineer the shape.
-If the task naturally benefits from steps, provide a short step outline.
-If the task is simple, keep it simple.
-
-Return JSON only with:
-- executorPrompt: string
-- objective: string (optional)
-- stepOutline: string[] (optional)
-- hardConstraints: string[] (optional)
-- stopRules: string[] (optional)
-- nonGoals: string[] (optional)
-- reportSections: string[] (optional)
-- artifacts: string[] (optional)
-- rationale: string[]
-
-Task input:
-${JSON.stringify({
-  rawPrompt: input.rawPrompt,
-  goal_hint: input.goal_hint || null,
-  taskContext: input.taskContext || null,
-  planContext: input.planContext || null,
-}, null, 2)}
-
-Selected routed skills:
-${JSON.stringify(routingResult.selected.map(summarizeCandidate), null, 2)}
-
-Rejected skills:
-${JSON.stringify(routingResult.rejected, null, 2)}
-
-Rules:
-- executorPrompt is the primary output and must be directly usable by a downstream executor
-- write executorPrompt in natural language, not as an API schema
-- stepOutline is optional and should only be included when it genuinely helps the executor
-- preserve workflow and tool-entry expectations from selected skills
-- keep the output lightweight and easy for a general model to produce
-- report output should be concise and evidence-oriented`;
+  return BETTERPROMPT_COMPILATION_SKILL.buildUserPrompt(
+    input,
+    routingResult.selected.map(summarizeCandidate),
+    routingResult.rejected || [],
+  );
 }
 
 function firstNonEmpty(...values) {
@@ -244,7 +202,7 @@ export async function buildBetterPromptV1(input) {
 
   const llmResult = await callJsonModel({
     stage: 'betterprompt_compilation',
-    systemPrompt: 'You are a prompt-compilation skill. Turn routed skills and task context into lightweight executor guidance, then return JSON only.',
+    systemPrompt: BETTERPROMPT_COMPILATION_SKILL.systemPrompt,
     userPrompt: buildCompilationPrompt(normalizedInput, routingResult),
     maxTokens: 2600,
   });
