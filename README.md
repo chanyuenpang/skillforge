@@ -107,6 +107,15 @@ pnpm test:betterprompt
 
 - [docs/skillforge-runtime-quota-config.md](D:/Users/chany/Documents/SkillForge/docs/skillforge-runtime-quota-config.md)
 
+### Provider Config
+
+如果你要让这条主链路真正跑起来，还要配置 LLM provider。当前系统已经是 strict LM mode，没有 provider credentials 会直接失败。
+
+- [docs/skillforge-provider-config.md](D:/Users/chany/Documents/SkillForge/docs/skillforge-provider-config.md)
+
+仓库里还带了一个可直接拉下来的默认 provider 配置：
+- [.skillforge/openclaw.json](D:/Users/chany/Documents/SkillForge/.skillforge/openclaw.json)
+
 ## Core Modules
 
 ### `betterPlan`
