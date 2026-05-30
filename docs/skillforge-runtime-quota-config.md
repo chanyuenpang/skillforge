@@ -1,0 +1,89 @@
+# SkillForge 试运行额度配置
+
+## 配置文件
+
+SkillForge 的试运行开关和额度不在 `openclaw.json`，而在：
+
+```text
+~/.openclaw/runtime/skillforge-flags.json
+```
+
+## 当前推荐配置
+
+```json
+{
+  "enabled": true,
+  "planRemaining": 20,
+  "promptRemaining": 50
+}
+```
+
+## 字段说明
+
+- `enabled`
+  - `true`：开启 SkillForge 试运行
+  - `false`：关闭试运行，不触发 `betterPlan` / `betterPrompt`
+
+- `planRemaining`
+  - 控制 `betterPlan` 的剩余触发次数
+  - 每次命中 plan review 前置触发点时先减 1，再调用
+  - 减到 `0` 后自动停止触发
+
+- `promptRemaining`
+  - 控制 `betterPrompt` 的剩余触发次数
+  - 每次命中 `sessions_spawn` 前置触发点时先减 1，再调用
+  - 减到 `0` 后自动停止触发
+
+## 运行语义
+
+当前模式是**先扣额度，再调用**：
+
+1. 命中触发点
+2. 先扣减对应计数
+3. 再调用 SkillForge CLI
+4. 无论成功或失败，都不回滚计数
+5. 主流程继续执行（fail-open）
+
+这意味着：
+
+- 计数控制的是**触发次数**，不是成功次数
+- 即使调用失败，也会消耗一次额度
+
+## 如何重置额度
+
+直接覆盖配置文件：
+
+```bash
+cat > ~/.openclaw/runtime/skillforge-flags.json << 'EOF'
+{
+  "enabled": true,
+  "planRemaining": 20,
+  "promptRemaining": 50
+}
+EOF
+```
+
+## 观察方式
+
+- 看剩余额度：
+
+```bash
+cat ~/.openclaw/runtime/skillforge-flags.json
+```
+
+- 看运行日志：
+
+```bash
+tail ~/.skillforge/execution-log.jsonl
+```
+
+当前日志采用最简格式：
+
+```json
+{
+  "ts": "2026-05-30T06:49:25.000Z",
+  "source": "betterPrompt",
+  "input": "...",
+  "output": "..."
+}
+```
