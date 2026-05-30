@@ -4,7 +4,8 @@
  * Captures real provider execution results (request/response/payload) so the
  * Web UI (Phase 16) and audit trails can consume them without re-executing.
  *
- * Follows the same pattern as review-store.mjs / prep-store.mjs / registry-store.mjs:
+ * Follows the same append-only JSON Lines persistence pattern as the other
+ * lightweight local stores in this repository:
  *   - ~/.skillforge/transcript-store.jsonl
  *   - Append-only JSON Lines
  *   - loadById returns the latest entry for a given executionId

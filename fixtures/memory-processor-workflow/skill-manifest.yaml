@@ -1,7 +1,0 @@
-fixtureId: memory-processor-workflow
-fixtureVersion: 0.1.0
-name: memory-processor-workflow
-kind: skill
-skills:
-  - entry: skill/SKILL.md
-profile: standard

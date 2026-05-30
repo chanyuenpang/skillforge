@@ -1,6 +1,0 @@
-fixtureId: memory-processor-workflow
-fixtureVersion: 0.1.0
-runMode: static
-status: drafted
-remarks:
-  - First-pass minimal fixture created from source SKILL.md.

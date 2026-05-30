@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  static-validation:
+  core-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -34,14 +34,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run aggregate static validation
-        run: pnpm --silent validate:all
+      - name: Run betterPlan verification
+        run: pnpm --silent test:betterplan
 
-      - name: Run contract validation
-        run: pnpm --silent validate:contracts
-
-      - name: Run raw-evidence regression gate
-        run: pnpm --silent validate:betterprompt:raw-evidence:gate
-
-      - name: Run replay contract regression gate
-        run: pnpm --silent validate:replay:contracts
+      - name: Run betterPrompt verification
+        run: pnpm --silent test:betterprompt

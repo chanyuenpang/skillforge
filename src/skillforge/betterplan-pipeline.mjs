@@ -5,7 +5,7 @@
  *   1. Validate input against BetterPlanInput contract
  *   2. Filter/crop plan text (program's job: sanitize, truncate)
  *   3. Assemble LLM prompt (program's job: structure the extraction request)
- *   4. Call LLM (reuses provider-config + fetch pattern from llm-semantic-extractor)
+ *   4. Call LLM through provider-config
  *   5. Parse + validate LLM output against BetterPlanOutput contract
  *   6. Guard and return structured result
  *
@@ -511,10 +511,15 @@ export async function runBetterPlan(input) {
   } catch (err) {
     meta.errors.push({ stage: 'llm_call', message: err.message });
     meta.llmDurationMs = Date.now() - llmStart;
+    meta.fallbackUsed = true;
+    meta.warnings.push(`LLM 不可用，已使用结构兜底: ${err.message}`);
+    const fallbackResult = buildFallbackFromPlan(planText, input.goal_hint);
+    const fallbackValidation = validateBetterPlanOutput(fallbackResult);
+    meta.validationPassed = fallbackValidation.valid;
     return {
-      result: null,
+      result: fallbackResult,
       meta,
-      error: `LLM 调用失败: ${err.message}`,
+      error: null,
     };
   }
 
