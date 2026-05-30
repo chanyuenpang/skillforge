@@ -1,0 +1,18 @@
+{
+  "models": {
+    "providers": {
+      "OpenAI": {
+        "baseURL": "https://api.openai.com/v1",
+        "models": [
+          { "id": "gpt-5.4-mini" }
+        ]
+      },
+      "DeepSeek": {
+        "baseURL": "https://api.deepseek.com/v1",
+        "models": [
+          { "id": "deepseek-v4-flash" }
+        ]
+      }
+    }
+  }
+}
