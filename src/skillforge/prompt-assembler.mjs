@@ -6,11 +6,38 @@
 //
 // No semantic interpretation, no rule inference, no quality judgment.
 
-import {
-  ASSEMBLED_PROMPT_KIND,
-  ASSEMBLED_PROMPT_VERSION,
-  validateAssembledPrompt,
-} from "./skill-prompt-contract.mjs";
+export const ASSEMBLED_PROMPT_KIND = "assembled-prompt";
+export const ASSEMBLED_PROMPT_VERSION = "assembled-prompt-draft-1";
+
+export function validateAssembledPrompt(value) {
+  const errors = [];
+  const obj = value && typeof value === "object" ? value : null;
+
+  if (!obj) {
+    errors.push({ field: "root", message: "must be an object" });
+  } else {
+    if (obj.kind !== ASSEMBLED_PROMPT_KIND) {
+      errors.push({ field: "kind", message: `must equal ${ASSEMBLED_PROMPT_KIND}` });
+    }
+    if (obj.version !== ASSEMBLED_PROMPT_VERSION) {
+      errors.push({ field: "version", message: `must equal ${ASSEMBLED_PROMPT_VERSION}` });
+    }
+    if (typeof obj.promptText !== "string") {
+      errors.push({ field: "promptText", message: "must be a string" });
+    }
+    if (!Array.isArray(obj.promptParts)) {
+      errors.push({ field: "promptParts", message: "must be an array" });
+    }
+    if (!Array.isArray(obj.referencedSkills)) {
+      errors.push({ field: "referencedSkills", message: "must be an array" });
+    }
+    if (!obj.metadata || typeof obj.metadata !== "object" || Array.isArray(obj.metadata)) {
+      errors.push({ field: "metadata", message: "must be an object" });
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
 
 // ─┬─ Helpers ────────────────────────────────────────────────────────────────
 

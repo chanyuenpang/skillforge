@@ -1,7 +1,83 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { discoverSkills } from './skill-source-adapter.mjs';
+
+// ── Inline discoverSkills (replaces deleted skill-source-adapter.mjs) ──
+async function discoverSkills(sourceDir, sourceId) {
+  const skillEntries = [];
+  async function walk(dir) {
+    let entries;
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // Check for SKILL.md inside this directory
+        const skillMd = path.join(full, 'SKILL.md');
+        try {
+          const stat = await fs.stat(skillMd);
+          if (stat.isFile()) {
+            const raw = await fs.readFile(skillMd, 'utf8');
+            skillEntries.push({ raw, filePath: skillMd, relativeDir: path.relative(sourceDir, full) });
+          }
+        } catch {
+          // No SKILL.md here, walk deeper
+          await walk(full);
+        }
+      }
+    }
+  }
+
+  await walk(sourceDir);
+
+  const skills = [];
+  for (const { raw, filePath, relativeDir } of skillEntries) {
+    try {
+      const frontmatter = extractFrontmatter(raw, filePath);
+      skills.push({
+        skillId: frontmatter.id || `${sourceId}:${relativeDir || path.basename(path.dirname(filePath))}`,
+        entryPath: path.relative(process.cwd(), filePath),
+        name: frontmatter.name || frontmatter.id || relativeDir || 'unknown',
+        description: frontmatter.description || '',
+        hash: frontmatter.hash || '',
+        semantic: frontmatter.semantic || {},
+      });
+    } catch {
+      // skip unparseable skills
+    }
+  }
+
+  return skills;
+}
+
+function extractFrontmatter(text, file) {
+  const normalized = text.replace(/^\uFEFF/u, '').replace(/\r\n?/g, '\n');
+  if (!normalized.startsWith('---\n')) {
+    throw new Error('No frontmatter');
+  }
+  const closeIdx = normalized.indexOf('\n---\n', 4);
+  if (closeIdx === -1) {
+    throw new Error('No closing frontmatter');
+  }
+  const fmText = normalized.slice(4, closeIdx);
+  const result = {};
+  for (const line of fmText.split('\n')) {
+    const sep = line.indexOf(':');
+    if (sep > 0) {
+      const key = line.slice(0, sep).trim();
+      let value = line.slice(sep + 1).trim();
+      // Strip quotes
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      result[key] = value;
+    }
+  }
+  return result;
+}
 
 function nowIso() {
   return new Date().toISOString();

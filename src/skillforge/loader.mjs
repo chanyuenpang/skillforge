@@ -313,17 +313,11 @@ export async function loadFixture(fixtureDir) {
 export default loadFixture;
 
 // ── Retro module re-exports (E1-E: structured retro completion) ──
-export {
-  createRetroRecord,
-  validateRetroRecord,
-  RETRO_STATUS_VALUES,
-  RETRO_DECISION_VALUES,
-} from "./retro-record.mjs";
+// [DELETED] export {
+// [DELETED]   createRetroRecord,
+// [DELETED]   validateRetroRecord,
+// [DELETED]   RETRO_STATUS_VALUES,
+// [DELETED]   RETRO_DECISION_VALUES,
+// [DELETED] } from "./retro-record.mjs";
 
-export {
-  createRetro,
-  finalizeRetro,
-  getRetroState,
-  listRecentRetros,
-  listRetroHistory,
-} from "./retro-store.mjs";
+// retro-store removed (non-core); keep loader focused on fixture/yaml loading.

@@ -1,6 +1,6 @@
 import { normalizeBetterPromptV1Input, validateBetterPromptV1Input, validateBetterPromptV1Output } from './betterprompt-v1-contract.mjs';
 import { assemblePrompt } from './prompt-assembler.mjs';
-import evaluateBetterPromptPackage from './betterprompt-qc.mjs';
+// [DELETED] import evaluateBetterPromptPackage from './betterprompt-qc.mjs';
 import { resolveSkills } from './skill-resolver.mjs';
 
 function normalizeText(v) {

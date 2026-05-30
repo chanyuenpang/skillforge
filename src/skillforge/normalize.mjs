@@ -1,4 +1,12 @@
-import { DIMENSIONS } from "./rules.mjs";
+const DIMENSIONS = Object.freeze([
+  "structure",
+  "trigger",
+  "boundary",
+  "dependency",
+  "replay",
+  "privacy",
+  "compatibility",
+]);
 
 const ALLOWED_DIMENSIONS = new Set(DIMENSIONS);
 const SOURCE_KEYS = Object.freeze([

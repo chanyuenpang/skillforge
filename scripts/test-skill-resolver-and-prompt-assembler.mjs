@@ -14,12 +14,45 @@
 
 import { resolveSkills } from "../src/skillforge/skill-resolver.mjs";
 import { assemblePrompt } from "../src/skillforge/prompt-assembler.mjs";
-import {
-  SKILL_REGISTRY,
-  validateResolvedSkillRecord,
-  validateAssembledPrompt,
-  ASSEMBLED_PROMPT_KIND,
-} from "../src/skillforge/skill-prompt-contract.mjs";
+import { ASSEMBLED_PROMPT_KIND, validateAssembledPrompt } from "../src/skillforge/prompt-assembler.mjs";
+
+const CONFLICT_STATUS_VALUES = Object.freeze([
+  "no-conflict",
+  "conflict-resolved-by-priority",
+  "conflict-deduped",
+]);
+
+function validateResolvedSkillRecord(record) {
+  const errors = [];
+  const isObject = Boolean(record) && typeof record === "object" && !Array.isArray(record);
+
+  if (!isObject) {
+    errors.push({ field: "$", message: "must be an object" });
+    return { valid: false, errors };
+  }
+
+  if (record.kind !== "resolved-skill-result") {
+    errors.push({ field: "kind", message: `expected "resolved-skill-result", got "${record.kind}"` });
+  }
+
+  if (!CONFLICT_STATUS_VALUES.includes(record.conflictStatus)) {
+    errors.push({ field: "conflictStatus", message: `must be one of ${CONFLICT_STATUS_VALUES.join(", ")}` });
+  }
+
+  if (typeof record.priority !== "number") {
+    errors.push({ field: "priority", message: "must be a number" });
+  }
+
+  if (typeof record.isDefault !== "boolean") {
+    errors.push({ field: "isDefault", message: "must be a boolean" });
+  }
+
+  if (!Array.isArray(record.promptTexts)) {
+    errors.push({ field: "promptTexts", message: "must be an array" });
+  }
+
+  return { valid: errors.length === 0, errors };
+}
 
 // ─┬─ Test utilities ─────────────────────────────────────────────────────────
 

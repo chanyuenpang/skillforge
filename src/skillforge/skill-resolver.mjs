@@ -12,12 +12,90 @@
 //
 // Pure — no I/O, no platform deps, no model deps, no side effects.
 
-import {
-  SKILL_REGISTRY,
-  RESOLVED_SKILL_KIND,
-  RESOLVED_SKILL_VERSION,
-  CONFLICT_STATUS_VALUES,
-} from "./skill-prompt-contract.mjs";
+// ── Inlined from deleted skill-prompt-contract.mjs ─────────────────────────
+
+const RESOLVED_SKILL_KIND = "resolved-skill-result";
+const RESOLVED_SKILL_VERSION = "resolved-skill-result-draft-1";
+
+const SKILL_REGISTRY = Object.freeze({
+  coding: Object.freeze({
+    kind: "skill-prompt-contract-skill-definition",
+    version: "skill-prompt-contract-draft-1",
+    id: "coding",
+    name: "代码开发",
+    priority: 1,
+    conflicts: Object.freeze(["summarizing"]),
+    requires: Object.freeze([]),
+    isDefault: false,
+    promptTemplate: "Act as a coding agent. Write production-quality code, follow best practices, and explain key design decisions.",
+    tags: Object.freeze(["code", "implement", "develop", "build", "create", "write", "fix"]),
+  }),
+
+  debugging: Object.freeze({
+    kind: "skill-prompt-contract-skill-definition",
+    version: "skill-prompt-contract-draft-1",
+    id: "debugging",
+    name: "问题排查",
+    priority: 2,
+    conflicts: Object.freeze([]),
+    requires: Object.freeze(["coding"]),
+    isDefault: false,
+    promptTemplate: "Act as a debugging agent. Trace errors, analyze logs, identify root causes, and propose fixes.",
+    tags: Object.freeze(["debug", "error", "bug", "trace", "diagnose", "troubleshoot", "research-analysis", "root-cause-analysis", "error-explanation"]),
+  }),
+
+  reviewing: Object.freeze({
+    kind: "skill-prompt-contract-skill-definition",
+    version: "skill-prompt-contract-draft-1",
+    id: "reviewing",
+    name: "代码审查",
+    priority: 3,
+    conflicts: Object.freeze([]),
+    requires: Object.freeze([]),
+    isDefault: false,
+    promptTemplate: "Act as a code reviewer. Assess correctness, style, security, and performance. Suggest improvements.",
+    tags: Object.freeze(["review", "check", "audit", "assess", "evaluate"]),
+  }),
+
+  summarizing: Object.freeze({
+    kind: "skill-prompt-contract-skill-definition",
+    version: "skill-prompt-contract-draft-1",
+    id: "summarizing",
+    name: "信息总结",
+    priority: 4,
+    conflicts: Object.freeze(["coding"]),
+    requires: Object.freeze([]),
+    isDefault: false,
+    promptTemplate: "Act as a summarizer. Condense information, extract key points, and present findings concisely.",
+    tags: Object.freeze(["summarize", "summary", "condense", "extract", "brief"]),
+  }),
+
+  searching: Object.freeze({
+    kind: "skill-prompt-contract-skill-definition",
+    version: "skill-prompt-contract-draft-1",
+    id: "searching",
+    name: "信息搜索",
+    priority: 5,
+    conflicts: Object.freeze([]),
+    requires: Object.freeze([]),
+    isDefault: false,
+    promptTemplate: "Act as a research agent. Search, gather, and organize information from available sources.",
+    tags: Object.freeze(["search", "find", "research", "lookup", "query", "research-analysis", "read-only-analysis", "investigation"]),
+  }),
+
+  "default-general": Object.freeze({
+    kind: "skill-prompt-contract-skill-definition",
+    version: "skill-prompt-contract-draft-1",
+    id: "default-general",
+    name: "通用助手",
+    priority: 100,
+    conflicts: Object.freeze([]),
+    requires: Object.freeze([]),
+    isDefault: true,
+    promptTemplate: "Act as a general-purpose assistant. Help with any task using your full capabilities.",
+    tags: Object.freeze([]),
+  }),
+});
 
 // ─┬─ Normalize helpers ──────────────────────────────────────────────────────
 
