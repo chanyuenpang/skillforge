@@ -20,6 +20,15 @@ function toArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function tokenize(text = '') {
+  return uniq(
+    String(text)
+      .toLowerCase()
+      .split(/[\s,;.!?，。；、/\\()[\]{}"'`:_-]+/)
+      .filter((token) => token.length >= 2),
+  );
+}
+
 const TAG_TYPE_WEIGHT = Object.freeze({
   project: 3,
   workflow: 2.5,
@@ -96,6 +105,9 @@ function collectTaskAnchors(taskRecord = {}, context = {}) {
     ...toArray(taskRecord.openTags),
     ...toArray(context.tags),
     ...toArray(context.tools),
+    ...tokenize(taskRecord.summary || ''),
+    ...tokenize(context.intent || ''),
+    ...tokenize(context.description || context.text || ''),
   ]);
 }
 
@@ -105,6 +117,8 @@ function scoreDirectSkillOverlap(skill, taskRecord, context = {}) {
   let score = 0;
 
   const fieldMatches = [
+    ['name', [skill.name || '']],
+    ['description', [skill.description || '']],
     ['applicableScenes', skill.applicableScenes || []],
     ['triggerHints', skill.triggerHints || []],
     ['requiredTools', skill.requiredTools || []],
@@ -113,10 +127,18 @@ function scoreDirectSkillOverlap(skill, taskRecord, context = {}) {
   ];
 
   for (const [field, values] of fieldMatches) {
-    const matches = uniq(values.filter((value) => anchors.includes(normalizeString(value))));
+    const exactMatches = values.filter((value) => anchors.includes(normalizeString(value)));
+    const tokenMatches = [];
+    for (const value of values) {
+      const tokens = tokenize(value);
+      for (const token of tokens) {
+        if (anchors.includes(token)) tokenMatches.push(token);
+      }
+    }
+    const matches = uniq([...exactMatches, ...tokenMatches]);
     if (matches.length === 0) continue;
     matchedFields.push({ field, values: matches });
-    score += matches.length;
+    score += field === 'name' || field === 'description' ? matches.length * 0.5 : matches.length;
   }
 
   return { score, matchedFields };
