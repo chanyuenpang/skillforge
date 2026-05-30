@@ -27,6 +27,7 @@ export const BetterPlanOutputSchema = Object.freeze({
   name: 'BetterPlanOutput',
   version: '2.0.0',
   fields: Object.freeze({
+    reviewText: 'string (required, non-empty)',
     summary: 'string (required, non-empty)',
     workflowBasis: ['string'],
     findings: [
@@ -81,6 +82,7 @@ export function validateBetterPlanOutput(output) {
     return { valid: false, errors };
   }
 
+  if (!hasText(output.reviewText)) pushError(errors, 'reviewText', 'is required');
   if (!hasText(output.summary)) pushError(errors, 'summary', 'is required');
   if (!Array.isArray(output.workflowBasis)) {
     pushError(errors, 'workflowBasis', 'must be an array');

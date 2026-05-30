@@ -46,6 +46,8 @@ async function main() {
     console.log('='.repeat(60));
     console.log('betterPrompt v2');
     console.log('='.repeat(60));
+    console.log(result.executorPrompt);
+    console.log('-'.repeat(60));
     console.log(`objective: ${result.execution.objective}`);
     console.log('selected skills:', result.routing.selected.map((item) => item.id).join(', '));
     console.log('steps:');

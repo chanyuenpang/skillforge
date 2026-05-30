@@ -71,6 +71,7 @@ export function validateBetterPromptV1Input(input) {
 
 export const BetterPromptV1Output = z.object({
   version: z.literal('betterprompt.v2'),
+  executorPrompt: NonEmptyString,
   input: z.object({
     rawPrompt: NonEmptyString,
     goal_hint: z.string().optional(),

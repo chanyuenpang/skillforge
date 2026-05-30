@@ -34,6 +34,7 @@ function buildReviewPrompt(planText, goalHint, routingResult) {
   return `You are reviewing a plan written by an agent.
 
 Return JSON only with:
+- reviewText: string
 - summary: string
 - workflowBasis: string[]
 - findings: { severity, basis, type, message, suggestion, source_skill_ref? }[]
@@ -52,6 +53,7 @@ ${planText}
 
 Review rules:
 - do not rewrite the plan
+- reviewText must be a direct natural-language review that an agent can read and act on immediately
 - review the plan from two angles:
   1. workflow-grounded review based on the retrieved workflow basis
   2. general planning review based on constraints, dependencies, done criteria, granularity, and ambiguity
@@ -75,6 +77,7 @@ function normalizeReview(raw) {
     : [];
 
   return {
+    reviewText: hasText(raw?.reviewText) ? String(raw.reviewText).trim() : '',
     summary: hasText(raw?.summary) ? String(raw.summary).trim() : '',
     workflowBasis,
     findings,
@@ -82,6 +85,19 @@ function normalizeReview(raw) {
       ? Math.max(0, Math.min(1, raw.confidence))
       : Number.NaN,
   };
+}
+
+function renderReviewText(review) {
+  if (hasText(review?.reviewText)) return review.reviewText.trim();
+
+  const lines = [];
+  if (hasText(review?.summary)) lines.push(review.summary.trim());
+  for (const finding of review?.findings || []) {
+    const severity = String(finding.severity || 'warning').toUpperCase();
+    const basis = finding.basis === 'workflow' ? 'workflow' : 'general';
+    lines.push(`[${severity}][${basis}] ${finding.message} Suggestion: ${finding.suggestion}`);
+  }
+  return lines.join('\n');
 }
 
 export async function runBetterPlan(input) {
@@ -134,6 +150,7 @@ export async function runBetterPlan(input) {
   meta.errors.push(...(llmResult.meta.errors || []));
 
   const normalized = normalizeReview(llmResult.data);
+  normalized.reviewText = renderReviewText(normalized);
   const outputValidation = validateBetterPlanOutput(normalized);
   meta.validationPassed = outputValidation.valid;
   if (!outputValidation.valid) throw new Error(`betterPlan output validation failed: ${outputValidation.errors.map((error) => `${error.field}:${error.message}`).join('; ')}`);

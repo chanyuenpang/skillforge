@@ -32,6 +32,10 @@ Rules:
 - use empty arrays instead of null
 - use null for unknown projectScope
 - describe the task for routing, not for end-user display
+- do not collapse the task into a single generic verb like "Validate" or "Fix" if the prompt contains richer targets
+- preserve concrete targets such as browser page flow, runtime gameplay test, code review, schema validation, compile pipeline, asset ids, or project names
+- include reportExpectations when the task explicitly asks for evidence, concise report, review conclusion, or specific output sections
+- include artifactTargets when the task clearly acts on code, config, ui/page, runtime, document, or assets
 
 Task context:
 ${JSON.stringify({
@@ -47,8 +51,19 @@ ${JSON.stringify({
 }
 
 export function normalizeTaskRecord(data = {}, context = {}) {
+  const description = hasText(context.description || context.text) ? String(context.description || context.text).trim() : '';
+  const rawSummary = hasText(data.summary) ? data.summary.trim() : '';
+  const weakSummary = /^(validate|fix|review|analyze|implement|check|debug)$/i.test(rawSummary);
+  const summary = rawSummary && !weakSummary
+    ? rawSummary
+    : hasText(context.intent)
+      ? String(context.intent).trim()
+      : description
+        ? description.split(/\r?\n/).map((line) => line.trim()).find(Boolean)?.slice(0, 120) || ''
+        : '';
+
   return {
-    summary: hasText(data.summary) ? data.summary.trim() : (hasText(context.intent) ? String(context.intent).trim() : ''),
+    summary,
     projectScope: hasText(data.projectScope) ? data.projectScope.trim() : (hasText(context.projectScope) ? String(context.projectScope).trim() : null),
     taskTypes: uniq(toArray(data.taskTypes)),
     workflowStages: uniq(toArray(data.workflowStages)),

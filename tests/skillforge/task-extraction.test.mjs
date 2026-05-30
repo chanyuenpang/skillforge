@@ -54,3 +54,19 @@ test('buildTaskExtractionPrompt includes routing-oriented context', () => {
   assert.match(prompt, /tiny-world/i);
   assert.match(prompt, /godot-mcp-cli/i);
 });
+
+test('normalizeTaskRecord preserves richer description when summary is too generic', () => {
+  const record = normalizeTaskRecord(
+    {
+      summary: 'Validate',
+      taskTypes: ['validation'],
+    },
+    {
+      text: 'Validate the browser page flow, check prerequisites first, and return a concise evidence-oriented report.',
+      tools: ['browseros-cli'],
+    },
+  );
+
+  assert.notEqual(record.summary, 'Validate');
+  assert.match(record.summary, /browser page flow/i);
+});
