@@ -67,6 +67,26 @@ function deriveSelectedSkillRefs(routingResult = {}) {
   return uniq((routingResult.selected || []).map((skill) => skill.sourceRef?.path || skill.id));
 }
 
+export function renderReferencedSkills(routingResult = {}) {
+  const selected = Array.isArray(routingResult.selected) ? routingResult.selected : [];
+  if (selected.length === 0) return '';
+
+  const lines = [];
+  lines.push('Referenced skills to consult if needed:');
+  for (const skill of selected) {
+    const ref = firstNonEmpty(skill.sourceRef?.path, skill.id);
+    const summary = firstNonEmpty(skill.workflowSkeletonSummary, skill.description);
+    const entrypoints = uniq(skill.entrypointHints || []);
+    const reportHints = uniq(skill.reportHints || []);
+    lines.push(`- ${skill.name || skill.id} (${ref})`);
+    if (hasText(summary)) lines.push(`  Workflow hint: ${summary}`);
+    if (entrypoints.length > 0) lines.push(`  Entrypoints: ${entrypoints.join(', ')}`);
+    if (reportHints.length > 0) lines.push(`  Report hints: ${reportHints.join(', ')}`);
+  }
+
+  return lines.join('\n');
+}
+
 function deriveConstraintHints(routingResult = {}) {
   const selected = routingResult.selected || [];
   return {
@@ -211,9 +231,10 @@ export async function buildBetterPromptV1(input) {
   const derivedObjective = deriveObjective(compiled, normalizedInput);
   const constraintHints = deriveConstraintHints(routingResult);
   const executorPrompt = firstNonEmpty(compiled.executorPrompt);
+  const skillReferenceBlock = renderReferencedSkills(routingResult);
   const output = {
     version: 'betterprompt.v2',
-    executorPrompt,
+    executorPrompt: [executorPrompt, skillReferenceBlock].filter(Boolean).join('\n\n'),
     input: {
       rawPrompt: normalizedInput.rawPrompt,
       ...(hasText(normalizedInput.goal_hint) ? { goal_hint: normalizedInput.goal_hint } : {}),

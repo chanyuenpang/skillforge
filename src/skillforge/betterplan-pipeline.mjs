@@ -14,6 +14,13 @@ function uniq(items = []) {
   return [...new Set(items.filter((item) => hasText(item)).map((item) => String(item).trim()))];
 }
 
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (hasText(value)) return String(value).trim();
+  }
+  return '';
+}
+
 function cropPlanText(plan, maxChars = MAX_PLAN_CHARS) {
   const text = String(plan || '').trim();
   if (text.length <= maxChars) return text;
@@ -58,11 +65,26 @@ function normalizeReview(raw) {
   };
 }
 
-function renderReviewText(review) {
+function deriveWorkflowGuidance(review) {
+  const workflowFindings = Array.isArray(review?.findings)
+    ? review.findings.filter((finding) => finding?.basis === 'workflow')
+    : [];
+  if (workflowFindings.length === 0) return [];
+
+  return uniq(workflowFindings.map((finding) => firstNonEmpty(finding.suggestion, finding.message)));
+}
+
+export function renderReviewText(review) {
   if (hasText(review?.reviewText)) return review.reviewText.trim();
 
   const lines = [];
   if (hasText(review?.summary)) lines.push(review.summary.trim());
+  const workflowGuidance = deriveWorkflowGuidance(review);
+  if (workflowGuidance.length > 0) {
+    lines.push('');
+    lines.push('Workflow guidance:');
+    for (const item of workflowGuidance) lines.push(`- ${item}`);
+  }
   for (const finding of review?.findings || []) {
     const severity = String(finding.severity || 'warning').toUpperCase();
     const basis = finding.basis === 'workflow' ? 'workflow' : 'general';

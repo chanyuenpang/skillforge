@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeCompiledOutput } from '../../src/skillforge/betterprompt-builder.mjs';
+import { normalizeCompiledOutput, renderReferencedSkills } from '../../src/skillforge/betterprompt-builder.mjs';
 
 test('normalizeCompiledOutput accepts lightweight compilation fields', () => {
   const normalized = normalizeCompiledOutput({
@@ -27,4 +27,24 @@ test('normalizeCompiledOutput accepts lightweight compilation fields', () => {
   ]);
   assert.deepEqual(normalized.guidance.reportHints, ['Summary', 'Evidence', 'Blocking issues']);
   assert.deepEqual(normalized.guidance.hardConstraints, ['Do not modify application code during validation.']);
+});
+
+test('renderReferencedSkills includes skill refs and workflow hints', () => {
+  const text = renderReferencedSkills({
+    selected: [
+      {
+        id: 'local-skills:browser-agent-workflow',
+        name: 'browser-agent-workflow',
+        kind: 'skill',
+        description: 'Use browser automation workflow.',
+        sourceRef: { path: 'skills/browser-agent-workflow/SKILL.md' },
+        entrypointHints: ['browseros-cli'],
+        workflowSkeletonSummary: 'Check prerequisites, execute browser flow, and report evidence.',
+      },
+    ],
+  });
+
+  assert.match(text, /Referenced skills to consult if needed:/);
+  assert.match(text, /skills\/browser-agent-workflow\/SKILL\.md/);
+  assert.match(text, /Workflow hint:/);
 });
