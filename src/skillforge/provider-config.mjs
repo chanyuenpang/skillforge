@@ -4,12 +4,14 @@ import path from 'node:path';
 const DEFAULT_MODEL = 'deepseek-chat';
 const DEEPSEEK_PROVIDER_KEYS = ['DeepSeek', 'deepseek'];
 const OPENAI_PROVIDER_KEYS = ['OpenAI', 'openai'];
+const ZHIPU_PROVIDER_KEYS = ['zhipu', 'Zhipu'];
 
 function hasText(v) {
   return typeof v === 'string' && v.trim().length > 0;
 }
 
 function getProviderModel(provider = {}) {
+  if (!provider || typeof provider !== 'object') return null;
   const modelIds = Array.isArray(provider.models)
     ? provider.models.map((item) => item?.id).filter(hasText)
     : [];
@@ -67,8 +69,18 @@ async function loadOpenClawConfig() {
 
 function pickModel(config = {}) {
   const providers = config?.models?.providers;
+  const forcedProvider = hasText(process.env.SKILLFORGE_PROVIDER) ? process.env.SKILLFORGE_PROVIDER.trim() : '';
+  const forcedModel = hasText(process.env.SKILLFORGE_MODEL) ? process.env.SKILLFORGE_MODEL.trim() : '';
 
-  for (const providerKey of [...DEEPSEEK_PROVIDER_KEYS, ...OPENAI_PROVIDER_KEYS]) {
+  if (hasText(forcedModel)) return forcedModel;
+
+  if (hasText(forcedProvider)) {
+    const provider = providers?.[forcedProvider];
+    const model = getProviderModel(provider);
+    if (hasText(model)) return model;
+  }
+
+  for (const providerKey of [...DEEPSEEK_PROVIDER_KEYS, ...OPENAI_PROVIDER_KEYS, ...ZHIPU_PROVIDER_KEYS]) {
     const provider = providers?.[providerKey];
     if (!provider) continue;
     const model = getProviderModel(provider);
@@ -89,38 +101,65 @@ function resolveProviderConfig(config = {}) {
   const providers = config?.models?.providers ?? {};
   const deepseekProvider = DEEPSEEK_PROVIDER_KEYS.map((k) => providers?.[k]).find(Boolean) ?? null;
   const openaiProvider = OPENAI_PROVIDER_KEYS.map((k) => providers?.[k]).find(Boolean) ?? null;
+  const zhipuProvider = ZHIPU_PROVIDER_KEYS.map((k) => providers?.[k]).find(Boolean) ?? null;
+  const forcedProvider = hasText(process.env.SKILLFORGE_PROVIDER) ? process.env.SKILLFORGE_PROVIDER.trim() : '';
+  const forcedModel = hasText(process.env.SKILLFORGE_MODEL) ? process.env.SKILLFORGE_MODEL.trim() : '';
 
   const openaiEnvActive = hasText(process.env.OPENAI_API_KEY) || hasText(process.env.OPENAI_BASE_URL);
   const deepseekEnvActive = hasText(process.env.DEEPSEEK_API_KEY) || hasText(process.env.DEEPSEEK_BASE_URL);
+  const zhipuEnvActive = hasText(process.env.ZHIPU_API_KEY) || hasText(process.env.ZHIPU_BASE_URL);
   const openaiConfigHasKey = hasText(openaiProvider?.apiKey);
   const deepseekConfigHasKey = hasText(deepseekProvider?.apiKey);
+  const zhipuConfigHasKey = hasText(zhipuProvider?.apiKey);
   const openaiConfigActive = openaiConfigHasKey || hasText(openaiProvider?.baseURL) || hasText(openaiProvider?.baseUrl) || hasText(getProviderModel(openaiProvider));
   const deepseekConfigActive = deepseekConfigHasKey || hasText(deepseekProvider?.baseURL) || hasText(deepseekProvider?.baseUrl) || hasText(getProviderModel(deepseekProvider));
+  const zhipuConfigActive = zhipuConfigHasKey || hasText(zhipuProvider?.baseURL) || hasText(zhipuProvider?.baseUrl) || hasText(getProviderModel(zhipuProvider));
 
-  const selectedProvider = openaiEnvActive
-    ? openaiProvider
-    : deepseekEnvActive
-      ? deepseekProvider
-      : openaiConfigHasKey
-        ? openaiProvider
-        : deepseekConfigHasKey
-          ? deepseekProvider
-          : openaiConfigActive
+  const providerByName = {
+    OpenAI: openaiProvider,
+    openai: openaiProvider,
+    DeepSeek: deepseekProvider,
+    deepseek: deepseekProvider,
+    zhipu: zhipuProvider,
+    Zhipu: zhipuProvider,
+  };
+
+  const selectedProvider = hasText(forcedProvider) && providerByName[forcedProvider]
+    ? providerByName[forcedProvider]
+    : openaiEnvActive
+      ? openaiProvider
+      : deepseekEnvActive
+        ? deepseekProvider
+        : zhipuEnvActive
+          ? zhipuProvider
+          : openaiConfigHasKey
             ? openaiProvider
-            : deepseekConfigActive
+            : deepseekConfigHasKey
               ? deepseekProvider
-              : (openaiProvider || deepseekProvider);
+              : zhipuConfigHasKey
+                ? zhipuProvider
+                : openaiConfigActive
+                  ? openaiProvider
+                  : deepseekConfigActive
+                    ? deepseekProvider
+                    : zhipuConfigActive
+                      ? zhipuProvider
+                      : (openaiProvider || deepseekProvider || zhipuProvider);
 
   const envApiKey = openaiEnvActive
     ? process.env.OPENAI_API_KEY || null
     : deepseekEnvActive
       ? process.env.DEEPSEEK_API_KEY || null
-      : process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY || null;
+      : zhipuEnvActive
+        ? process.env.ZHIPU_API_KEY || null
+        : process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.ZHIPU_API_KEY || null;
   const envBaseUrl = openaiEnvActive
     ? process.env.OPENAI_BASE_URL || null
     : deepseekEnvActive
       ? process.env.DEEPSEEK_BASE_URL || null
-      : process.env.OPENAI_BASE_URL || process.env.DEEPSEEK_BASE_URL || null;
+      : zhipuEnvActive
+        ? process.env.ZHIPU_BASE_URL || null
+        : process.env.OPENAI_BASE_URL || process.env.DEEPSEEK_BASE_URL || process.env.ZHIPU_BASE_URL || null;
 
   const configApiKey = selectedProvider?.apiKey || null;
   const configBaseUrl = selectedProvider?.baseURL || selectedProvider?.baseUrl || null;
@@ -128,7 +167,7 @@ function resolveProviderConfig(config = {}) {
   const apiKey = envApiKey || configApiKey;
   const baseUrl = envBaseUrl || configBaseUrl || 'https://api.deepseek.com/v1';
   const endpoint = `${String(baseUrl).replace(/\/+$/, '')}/chat/completions`;
-  const model = getProviderModel(selectedProvider) || pickModel(config);
+  const model = forcedModel || getProviderModel(selectedProvider) || pickModel(config);
 
   return {
     apiKey,
@@ -142,5 +181,7 @@ export async function getProviderConfig() {
   const config = await loadOpenClawConfig();
   return resolveProviderConfig(config);
 }
+
+export { resolveProviderConfig, pickModel };
 
 export default getProviderConfig;
