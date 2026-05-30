@@ -11,7 +11,8 @@ function hasText(value) {
 }
 
 function uniq(items = []) {
-  return [...new Set(items.filter((item) => hasText(item)).map((item) => String(item).trim()))];
+  const values = Array.isArray(items) ? items : [items];
+  return [...new Set(values.filter((item) => hasText(item)).map((item) => String(item).trim()))];
 }
 
 function summarizeCandidate(candidate) {
