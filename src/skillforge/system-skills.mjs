@@ -169,7 +169,7 @@ export const BETTERPROMPT_COMPILATION_SKILL = Object.freeze({
   buildUserPrompt(input, routedSkills = [], rejectedSkills = []) {
     return `You are a prompt-compilation skill for a general downstream executor.
 
-Your job is to digest the current task together with the routed skills, then produce guidance that a general executor agent can directly follow.
+Your job is to digest the current task together with the routed skills, then produce guidance that a capable general executor agent can directly follow.
 
 Treat the routed skills as programs for the model:
 - preserve the workflow shape they imply
@@ -179,7 +179,12 @@ Treat the routed skills as programs for the model:
 
 Important guidance:
 - executorPrompt is the primary output and must be directly usable by a downstream executor
-- if the task naturally benefits from steps or deliverables, make them explicit inside executorPrompt
+- executorPrompt should read like a concise execution brief for a capable agent, not a tutorial
+- do not name or explain the workflow in the main body unless the task explicitly requires it
+- prefer compact imperative language over explanatory prose
+- if the task naturally benefits from steps or deliverables, make them explicit inside executorPrompt, but only when they improve execution accuracy
+- only make steps explicit when they are necessary for execution accuracy
+- keep deliverables explicit, but keep narration minimal
 - you may also return stepOutline, reportSections, artifacts, or constraint hints, but they are secondary
 - keep the schema lightweight; do not over-engineer it
 
