@@ -75,13 +75,7 @@ export function renderReferencedSkills(routingResult = {}) {
   lines.push('Referenced skills to consult if needed:');
   for (const skill of selected) {
     const ref = firstNonEmpty(skill.sourceRef?.path, skill.id);
-    const summary = firstNonEmpty(skill.workflowSkeletonSummary, skill.description);
-    const entrypoints = uniq(skill.entrypointHints || []);
-    const reportHints = uniq(skill.reportHints || []);
     lines.push(`- ${skill.name || skill.id} (${ref})`);
-    if (hasText(summary)) lines.push(`  Workflow hint: ${summary}`);
-    if (entrypoints.length > 0) lines.push(`  Entrypoints: ${entrypoints.join(', ')}`);
-    if (reportHints.length > 0) lines.push(`  Report hints: ${reportHints.join(', ')}`);
   }
 
   return lines.join('\n');

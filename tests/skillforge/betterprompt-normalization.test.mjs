@@ -29,7 +29,7 @@ test('normalizeCompiledOutput accepts lightweight compilation fields', () => {
   assert.deepEqual(normalized.guidance.hardConstraints, ['Do not modify application code during validation.']);
 });
 
-test('renderReferencedSkills includes skill refs and workflow hints', () => {
+test('renderReferencedSkills includes only skill refs', () => {
   const text = renderReferencedSkills({
     selected: [
       {
@@ -46,5 +46,7 @@ test('renderReferencedSkills includes skill refs and workflow hints', () => {
 
   assert.match(text, /Referenced skills to consult if needed:/);
   assert.match(text, /skills\/browser-agent-workflow\/SKILL\.md/);
-  assert.match(text, /Workflow hint:/);
+  assert.doesNotMatch(text, /Workflow hint:/);
+  assert.doesNotMatch(text, /Entrypoints:/);
+  assert.doesNotMatch(text, /Report hints:/);
 });
