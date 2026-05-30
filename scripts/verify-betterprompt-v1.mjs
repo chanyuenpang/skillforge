@@ -48,13 +48,17 @@ async function main() {
     console.log('='.repeat(60));
     console.log(result.executorPrompt);
     console.log('-'.repeat(60));
-    console.log(`objective: ${result.execution.objective}`);
+    console.log(`objective: ${result.guidance.objective || '(not provided)'}`);
     console.log('selected skills:', result.routing.selected.map((item) => item.id).join(', '));
-    console.log('steps:');
-    for (const step of result.execution.steps) {
-      console.log(`- ${step.id}: ${step.title}`);
+    if (Array.isArray(result.guidance.stepOutline) && result.guidance.stepOutline.length > 0) {
+      console.log('step outline:');
+      for (const step of result.guidance.stepOutline) {
+        console.log(`- ${step}`);
+      }
     }
-    console.log('report sections:', result.report.requiredSections.join(', '));
+    if (Array.isArray(result.guidance.reportHints) && result.guidance.reportHints.length > 0) {
+      console.log('report hints:', result.guidance.reportHints.join(', '));
+    }
     console.log(`qc: pass=${result.qc.pass} score=${result.qc.score}`);
   }
 

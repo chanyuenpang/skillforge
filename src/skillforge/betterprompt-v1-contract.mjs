@@ -88,25 +88,14 @@ export const BetterPromptV1Output = z.object({
       runtimeToolContext: z.array(NonEmptyString),
     }),
   }),
-  execution: z.object({
-    objective: NonEmptyString,
-    steps: z.array(z.object({
-      id: NonEmptyString,
-      title: NonEmptyString,
-      intent: NonEmptyString,
-      entrypoint: z.string().optional(),
-      checks: z.array(NonEmptyString).min(1),
-    })).min(1),
-    completionCriteria: z.array(NonEmptyString).min(1),
-  }),
-  constraints: z.object({
-    hard: z.array(NonEmptyString),
-    stopRules: z.array(NonEmptyString),
-    nonGoals: z.array(NonEmptyString),
-  }),
-  report: z.object({
-    requiredSections: z.array(NonEmptyString).min(1),
-    artifacts: z.array(NonEmptyString),
+  guidance: z.object({
+    objective: z.string().optional().default(''),
+    stepOutline: z.array(NonEmptyString).optional().default([]),
+    hardConstraints: z.array(NonEmptyString).optional().default([]),
+    stopRules: z.array(NonEmptyString).optional().default([]),
+    nonGoals: z.array(NonEmptyString).optional().default([]),
+    reportHints: z.array(NonEmptyString).optional().default([]),
+    artifacts: z.array(NonEmptyString).optional().default([]),
   }),
   trace: z.object({
     sourcePromptRef: NonEmptyString,

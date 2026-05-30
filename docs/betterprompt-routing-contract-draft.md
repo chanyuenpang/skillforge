@@ -84,9 +84,15 @@ This exists because the trigger may come from either:
 
 ## Output Shape
 
-The output should not be a vague rewritten prompt.
+The output should be centered on a final natural-language executor prompt.
 
-It should be a compiled execution package with at least these sections:
+That prompt may clearly include sections such as steps, deliverables, constraints, and report expectations.
+
+But those expectations should be expressed as part of the skill-guided prompt design for the model, not as a rigid program-validated schema that the model must satisfy field by field.
+
+The program layer may still keep lightweight trace and routing metadata, but the actual execution guidance should remain model-authored natural language.
+
+The working package should therefore include:
 
 ### 1. Routing Result
 
@@ -97,33 +103,28 @@ It should be a compiled execution package with at least these sections:
 - selected entrypoints
 - source kind notes such as `skill` vs `subagent`
 
-### 2. Execution Intent
+### 2. Executor Prompt
 
-- executor objective
-- task goal restatement
-- completion condition
+- a final natural-language prompt directly usable by the downstream executor
+- when helpful, it should clearly include:
+  - steps
+  - deliverables
+  - constraints
+  - report expectations
+- these should be phrased naturally, as part of the prompt itself
 
-### 3. Execution Steps
+### 3. Lightweight Guidance Hints
 
-- ordered steps
-- per-step intent
-- per-step checks
-- per-step entrypoint or tool family
+- optional objective restatement
+- optional step outline
+- optional report hints
+- optional constraint hints
 
-### 4. Constraints
+These hints exist to help observability and debugging.
 
-- hard constraints
-- non-goals
-- failure stop conditions
-- do-not-invent rules when a skill requires a canonical interface
+They are not the primary execution artifact.
 
-### 5. Output Requirements
-
-- expected report structure
-- required artifacts
-- formatting expectations
-
-### 6. Traceability
+### 4. Traceability
 
 - source skill refs
 - source prompt reference
@@ -135,53 +136,23 @@ The next implementation target can be approximated with the following structure:
 
 ```json
 {
+  "executorPrompt": "Check prerequisites first. Then use the canonical browser workflow to validate the requested page flow. Follow the expected interaction path carefully, stop immediately if prerequisite checks fail, and return a concise evidence-oriented report with completed actions, key evidence, blockers, and any warnings.",
   "routing": {
     "selected": ["skills/browser-agent-workflow"],
     "rejected": ["skills/executor"],
-    "rationale": ["task requires browser interaction and standardized CLI workflow"],
-    "toolGate": {
-      "required": ["browseros-cli"],
-      "matched": ["browseros-cli"],
-      "missing": []
-    },
-    "entrypoints": ["python3 -m browseros_cli"]
+    "rationale": ["task requires browser interaction and standardized CLI workflow"]
   },
-  "execution": {
+  "guidance": {
     "objective": "validate the requested page flow and collect evidence",
-    "completionCriteria": [
-      "target page actions completed",
-      "expected page state verified",
-      "report includes evidence"
+    "stepOutline": [
+      "verify prerequisites",
+      "execute the browser flow",
+      "return an evidence-oriented report"
     ],
-    "steps": [
-      {
-        "id": "step-1",
-        "title": "Verify tool availability",
-        "intent": "confirm the browser execution path is usable",
-        "entrypoint": "python3 -m browseros_cli --help",
-        "checks": ["command returns successfully"]
-      }
-    ]
-  },
-  "constraints": {
-    "hard": [
-      "use the canonical browser CLI path before inventing alternative commands"
-    ],
-    "stopRules": [
-      "if health checks fail, stop and report the failure point"
-    ],
-    "nonGoals": [
-      "do not route a predefined specialized subagent unless explicitly required"
-    ]
-  },
-  "report": {
-    "requiredSections": [
+    "reportHints": [
       "completed actions",
       "key evidence",
       "failures or warnings"
-    ],
-    "artifacts": [
-      "screenshots if produced by the skill workflow"
     ]
   },
   "trace": {
@@ -200,9 +171,9 @@ The next version of `betterPrompt` should behave as follows:
 1. it should not assume a predefined subagent must exist
 2. it should dynamically route skills at execution time
 3. it should consume the original agent prompt instead of ignoring it
-4. it should produce something directly usable by a downstream executor agent
+4. it should produce a final natural-language prompt directly usable by a downstream executor agent
 5. it should preserve enough traceability for log review
-6. it should preserve routed workflow structure such as entrypoints, checks, stop rules, and report requirements
+6. it should preserve routed workflow structure such as steps, stop rules, and report requirements inside that natural-language prompt
 
 ## Non-Goals
 

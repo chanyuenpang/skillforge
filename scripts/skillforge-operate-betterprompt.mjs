@@ -116,9 +116,10 @@ async function main() {
         sourcePrompt: prompt,
         selectedSkillRefs: result.trace.skillRefs,
         compiledPackage: {
-          objective: result.execution.objective,
-          steps: result.execution.steps.length,
-          reportSections: result.report.requiredSections,
+          objective: result.guidance.objective || '',
+          stepOutline: result.guidance.stepOutline || [],
+          reportHints: result.guidance.reportHints || [],
+          executorPromptPreview: result.executorPrompt.slice(0, 400),
         },
       },
       diagnosis: {

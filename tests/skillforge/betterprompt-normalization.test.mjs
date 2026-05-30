@@ -4,15 +4,12 @@ import { normalizeCompiledOutput } from '../../src/skillforge/betterprompt-build
 
 test('normalizeCompiledOutput accepts lightweight compilation fields', () => {
   const normalized = normalizeCompiledOutput({
+    executorPrompt: 'Check prerequisites first, validate the browser page flow, and return a concise evidence-oriented report.',
     objective: 'Validate the browser page flow and report issues.',
     stepOutline: [
       'Check prerequisites and open the target page.',
       'Walk through the main page flow and note any blockers.',
       'Summarize findings with concise evidence.',
-    ],
-    completionCriteria: [
-      'The main browser flow is checked end to end.',
-      'The final report includes evidence-oriented findings.',
     ],
     hardConstraints: ['Do not modify application code during validation.'],
     stopRules: ['Stop if the page cannot be opened or prerequisites fail.'],
@@ -21,9 +18,13 @@ test('normalizeCompiledOutput accepts lightweight compilation fields', () => {
     rationale: ['The task is a browser validation workflow.'],
   });
 
-  assert.equal(normalized.execution.objective, 'Validate the browser page flow and report issues.');
-  assert.equal(normalized.execution.steps.length, 3);
-  assert.equal(normalized.execution.steps[0].id, 'step-1');
-  assert.deepEqual(normalized.report.requiredSections, ['Summary', 'Evidence', 'Blocking issues']);
-  assert.deepEqual(normalized.constraints.hard, ['Do not modify application code during validation.']);
+  assert.equal(normalized.executorPrompt, 'Check prerequisites first, validate the browser page flow, and return a concise evidence-oriented report.');
+  assert.equal(normalized.guidance.objective, 'Validate the browser page flow and report issues.');
+  assert.deepEqual(normalized.guidance.stepOutline, [
+    'Check prerequisites and open the target page.',
+    'Walk through the main page flow and note any blockers.',
+    'Summarize findings with concise evidence.',
+  ]);
+  assert.deepEqual(normalized.guidance.reportHints, ['Summary', 'Evidence', 'Blocking issues']);
+  assert.deepEqual(normalized.guidance.hardConstraints, ['Do not modify application code during validation.']);
 });
