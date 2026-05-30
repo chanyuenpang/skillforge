@@ -62,7 +62,7 @@ ${JSON.stringify({
 
 export const BETTERPLAN_REVIEW_SKILL = Object.freeze({
   id: 'betterplan-review-skill',
-  purpose: 'Review an agent-authored plan with workflow grounding and natural-language feedback.',
+  purpose: 'Review an agent-authored plan with workflow grounding, plan-quality rules, and natural-language feedback.',
   outputSchema: {
     type: 'object',
     required: ['reviewText', 'summary', 'workflowBasis', 'findings', 'confidence'],
@@ -107,9 +107,30 @@ ${planText}
 Review this like a planning-review skill:
 - do not rewrite the whole plan
 - produce a direct natural-language review that an agent can immediately act on
+- first classify the plan type in your own reasoning:
+  - execution plan
+  - research / exploration plan
+  - review / verification plan
+  - coordination / dispatch plan
 - review from two angles:
   1. workflow-grounded review based on the retrieved workflow basis
   2. general planning review based on constraints, dependencies, done criteria, granularity, and ambiguity
+- use a stable "good plan" standard:
+  - the plan goal is concrete and not overly broad
+  - the plan tasks have the right granularity for the plan type
+  - the plan makes task boundaries, dependencies, and done criteria legible
+  - the plan does not mix too many responsibilities inside one task
+- if the plan is an execution plan, treat atomicity as a primary review rule
+- for an execution plan, a task should be atomic enough that one subagent can finish it independently without extra back-and-forth clarification
+- if one task mixes implementation, verification, review, environment setup, or reporting in a way that breaks atomicity, call that out clearly
+- if task scope is too large, too vague, or bundles multiple deliverables, call that out as a granularity problem
+- if useful, recommend a better task shape using ideas like:
+  - objective
+  - scope
+  - inputs
+  - expected output
+  - done criteria
+  - dependencies
 - keep feedback concise, actionable, and execution-oriented
 - return at least 2 findings unless the plan is exceptionally complete
 - use basis=workflow when the issue is derived from workflow skeleton expectations
