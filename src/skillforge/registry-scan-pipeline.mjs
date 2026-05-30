@@ -300,7 +300,30 @@ export async function runRegistryScanPipeline({ sourceDir, sourceId }) {
   const records = [];
 
   for (const filePath of skillFiles) {
-    records.push(await extractSkillIr({ sourceId, filePath }));
+    try {
+      records.push(await extractSkillIr({ sourceId, filePath }));
+    } catch (error) {
+      const relativePath = path.relative(process.cwd(), filePath);
+      const skillDir = path.dirname(filePath);
+      const relativeSkillDir = path.relative(path.resolve('skills'), skillDir).replace(/\\/g, '/');
+      const fallbackSkillId = `${sourceId}:${relativeSkillDir || path.basename(skillDir)}`;
+      records.push({
+        sourceId,
+        skillId: fallbackSkillId,
+        entryPath: relativePath,
+        status: 'error',
+        fields: null,
+        registryEntry: null,
+        errors: [
+          {
+            code: error.code || 'SKILL_IR_EXTRACTION_FAILED',
+            message: error.message,
+            stage: error?.meta?.stage || 'skill_ir_extraction',
+          },
+        ],
+        extractionMeta: error?.meta || null,
+      });
+    }
   }
 
   for (const record of records) {

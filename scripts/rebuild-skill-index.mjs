@@ -92,6 +92,23 @@ async function main() {
     buildMode: args.mode,
   });
 
+  if (scan.summary.error > 0) {
+    const error = new Error(`registry scan completed with ${scan.summary.error} skill extraction error(s)`);
+    error.code = 'PARTIAL_INDEX_BUILD_FAILED';
+    error.meta = {
+      scanId: scan.scanId,
+      summary: scan.summary,
+      failedRecords: scan.records
+        .filter((record) => record.status === 'error')
+        .map((record) => ({
+          skillId: record.skillId,
+          entryPath: record.entryPath,
+          errors: record.errors || [],
+        })),
+    };
+    throw error;
+  }
+
   console.log(JSON.stringify({
     ok: true,
     dbPath,
