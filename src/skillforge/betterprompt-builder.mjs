@@ -31,7 +31,21 @@ function summarizeCandidate(candidate) {
 }
 
 function buildCompilationPrompt(input, routingResult) {
-  return `You are compiling a downstream-executor package from a task and routed skill set.
+  return `You are a prompt-compilation skill for a general downstream executor.
+
+Your job is to digest the current task together with the routed skills, then produce guidance that a general executor agent can directly follow.
+
+Think like this:
+- what is the real objective
+- what workflow shape should be preserved
+- what tool or entrypoint expectations matter
+- what must be checked before or during execution
+- what should the final report contain
+
+Keep the output lightweight.
+Do not over-engineer the shape.
+If the task naturally benefits from steps, provide a short step outline.
+If the task is simple, keep it simple.
 
 Return JSON only with:
 - objective: string
@@ -261,7 +275,7 @@ export async function buildBetterPromptV1(input) {
 
   const llmResult = await callJsonModel({
     stage: 'betterprompt_compilation',
-    systemPrompt: 'You compile executor-facing packages from routed skills and task context. Return JSON only.',
+    systemPrompt: 'You are a prompt-compilation skill. Turn routed skills and task context into lightweight executor guidance, then return JSON only.',
     userPrompt: buildCompilationPrompt(normalizedInput, routingResult),
     maxTokens: 2600,
   });

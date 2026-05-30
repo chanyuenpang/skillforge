@@ -51,16 +51,16 @@ Plan text:
 ${planText}
 ---
 
-Review rules:
-- do not rewrite the plan
-- reviewText must be a direct natural-language review that an agent can read and act on immediately
-- review the plan from two angles:
+Review this like a planning-review skill:
+- do not rewrite the whole plan
+- produce a direct natural-language review that an agent can immediately act on
+- review from two angles:
   1. workflow-grounded review based on the retrieved workflow basis
   2. general planning review based on constraints, dependencies, done criteria, granularity, and ambiguity
+- keep feedback concise, actionable, and execution-oriented
 - return at least 2 findings unless the plan is exceptionally complete
 - use basis=workflow when the issue is derived from workflow skeleton expectations
-- use basis=general for broader planning quality issues
-- keep messages concise and implementable`;
+- use basis=general for broader planning quality issues`;
 }
 
 function normalizeReview(raw) {
@@ -139,7 +139,7 @@ export async function runBetterPlan(input) {
 
   const llmResult = await callJsonModel({
     stage: 'betterplan_review',
-    systemPrompt: 'You review agent-authored plans against workflow expectations and general planning quality. Return JSON only.',
+    systemPrompt: 'You are a plan-review skill for agent-authored plans. Review against workflow expectations and planning quality, then return JSON only.',
     userPrompt: buildReviewPrompt(planText, input.goal_hint, routingResult),
     maxTokens: Number.isFinite(input.max_tokens) ? input.max_tokens : DEFAULT_MAX_OUTPUT_TOKENS,
   });
