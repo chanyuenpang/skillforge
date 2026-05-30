@@ -76,10 +76,15 @@ export function validateBetterPlanInput(input) {
  * BetterPlanOutput — lightweight task skeleton
  *
  * @property {object[]} skeleton  — ordered task skeleton steps
- *   @property {string}   id         — unique step identifier
- *   @property {string}   title      — short task name
- *   @property {number}   order      — execution order (1-based)
- *   @property {string[]} dependsOn  — ids this step depends on
+ *   @property {string}   id              — unique step identifier
+ *   @property {string}   title           — short task name
+ *   @property {number}   order           — execution order (1-based)
+ *   @property {string[]} dependsOn       — ids this step depends on
+ *   @property {string}   action          — independently executable action
+ *   @property {string}   expected_output — concrete deliverable after completion
+ *   @property {string}   verification    — acceptance signal / validation method
+ *   @property {string[]} dependencies    — prerequisite steps/conditions
+ *   @property {string[]} blockers        — potential blocking points
  * @property {string}     goal           — distilled goal
  * @property {string[]}   boundaries     — scope boundaries / hard constraints
  * @property {string}     order_rationale — why this ordering
@@ -102,6 +107,11 @@ export const BetterPlanOutputSchema = Object.freeze({
         title: 'string (required)',
         order: 'number (positive integer)',
         dependsOn: ['string'],
+        action: 'string (required, executable action)',
+        expected_output: 'string (required, concrete deliverable)',
+        verification: 'string (required, acceptance signal/check)',
+        dependencies: ['string (required, can be empty array)'],
+        blockers: ['string (required, can be empty array)'],
       },
     ],
     keyPoints: ['string'],
@@ -131,6 +141,22 @@ function validateSkeletonStep(step, index, errors, path) {
     pushError(errors, `${itemPath}.dependsOn`, 'must be an array of strings');
   } else if (!step.dependsOn.every((d) => typeof d === 'string')) {
     pushError(errors, `${itemPath}.dependsOn`, 'each element must be a string');
+  }
+
+  if (!hasText(step.action)) pushError(errors, `${itemPath}.action`, 'is required');
+  if (!hasText(step.expected_output)) pushError(errors, `${itemPath}.expected_output`, 'is required');
+  if (!hasText(step.verification)) pushError(errors, `${itemPath}.verification`, 'is required');
+
+  if (!Array.isArray(step.dependencies)) {
+    pushError(errors, `${itemPath}.dependencies`, 'must be an array of strings');
+  } else if (!step.dependencies.every((d) => typeof d === 'string')) {
+    pushError(errors, `${itemPath}.dependencies`, 'each element must be a string');
+  }
+
+  if (!Array.isArray(step.blockers)) {
+    pushError(errors, `${itemPath}.blockers`, 'must be an array of strings');
+  } else if (!step.blockers.every((d) => typeof d === 'string')) {
+    pushError(errors, `${itemPath}.blockers`, 'each element must be a string');
   }
 }
 

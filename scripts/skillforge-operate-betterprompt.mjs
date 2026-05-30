@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { appendFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { buildBetterPromptV1 } from '../src/skillforge/betterprompt-builder.mjs';
 
 function parseArgs(argv) {
@@ -60,6 +62,7 @@ export async function operateBetterPrompt({ prompt = '', goalHint = '' } = {}) {
 }
 
 async function main() {
+  const startTime = Date.now();
   const args = parseArgs(process.argv.slice(2));
 
   if (args.help) {
@@ -75,10 +78,25 @@ async function main() {
     process.exit(1);
   }
 
-  await operateBetterPrompt({
-    prompt,
-    goalHint: args.goal_hint,
-  });
+  const logPath = `${homedir()}/.skillforge/execution-log.jsonl`;
+  const executionId = `el-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  try {
+    const result = await buildBetterPromptV1({
+      prompt,
+      ...(args.goal_hint ? { goal_hint: args.goal_hint } : {}),
+    });
+    const output = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+
+    const logLine = { ts: new Date().toISOString(), source: 'betterPrompt', input: prompt, output };
+    appendFileSync(logPath, `${JSON.stringify(logLine)}\n`);
+
+    process.stdout.write(`${output}\n`);
+  } catch (error) {
+    const logLine = { ts: new Date().toISOString(), source: 'betterPrompt', input: prompt, error: error.message };
+    appendFileSync(logPath, `${JSON.stringify(logLine)}\n`);
+    throw error;
+  }
 }
 
 main();

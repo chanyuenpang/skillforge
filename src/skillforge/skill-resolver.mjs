@@ -18,69 +18,82 @@ const RESOLVED_SKILL_KIND = "resolved-skill-result";
 const RESOLVED_SKILL_VERSION = "resolved-skill-result-draft-1";
 
 const SKILL_REGISTRY = Object.freeze({
-  coding: Object.freeze({
+  "coding-agent-workflow": Object.freeze({
     kind: "skill-prompt-contract-skill-definition",
     version: "skill-prompt-contract-draft-1",
-    id: "coding",
+    id: "coding-agent-workflow",
     name: "代码开发",
     priority: 1,
-    conflicts: Object.freeze(["summarizing"]),
+    conflicts: Object.freeze(["task-planning"]),
     requires: Object.freeze([]),
     isDefault: false,
     promptTemplate: "Act as a coding agent. Write production-quality code, follow best practices, and explain key design decisions.",
-    tags: Object.freeze(["code", "implement", "develop", "build", "create", "write", "fix"]),
+    tags: Object.freeze(["code", "implement", "develop", "build", "create", "write", "fix", "代码", "开发", "实现", "重构"]),
   }),
 
-  debugging: Object.freeze({
+  explorer: Object.freeze({
     kind: "skill-prompt-contract-skill-definition",
     version: "skill-prompt-contract-draft-1",
-    id: "debugging",
+    id: "explorer",
     name: "问题排查",
     priority: 2,
     conflicts: Object.freeze([]),
-    requires: Object.freeze(["coding"]),
+    requires: Object.freeze(["coding-agent-workflow"]),
     isDefault: false,
     promptTemplate: "Act as a debugging agent. Trace errors, analyze logs, identify root causes, and propose fixes.",
-    tags: Object.freeze(["debug", "error", "bug", "trace", "diagnose", "troubleshoot", "research-analysis", "root-cause-analysis", "error-explanation"]),
+    tags: Object.freeze(["debug", "error", "bug", "trace", "diagnose", "troubleshoot", "explore", "research", "analysis", "investigation", "排查", "调试", "错误", "调研", "探索", "分析"]),
   }),
 
-  reviewing: Object.freeze({
+  "browser-agent-workflow": Object.freeze({
     kind: "skill-prompt-contract-skill-definition",
     version: "skill-prompt-contract-draft-1",
-    id: "reviewing",
-    name: "代码审查",
+    id: "browser-agent-workflow",
+    name: "浏览器操作",
     priority: 3,
     conflicts: Object.freeze([]),
     requires: Object.freeze([]),
     isDefault: false,
-    promptTemplate: "Act as a code reviewer. Assess correctness, style, security, and performance. Suggest improvements.",
-    tags: Object.freeze(["review", "check", "audit", "assess", "evaluate"]),
+    promptTemplate: "Act as a browser agent. Navigate web pages, extract content, and interact with web interfaces.",
+    tags: Object.freeze(["browser", "web", "page", "crawl", "scrape", "浏览器", "网页", "页面"]),
   }),
 
-  summarizing: Object.freeze({
+  "task-planning": Object.freeze({
     kind: "skill-prompt-contract-skill-definition",
     version: "skill-prompt-contract-draft-1",
-    id: "summarizing",
-    name: "信息总结",
+    id: "task-planning",
+    name: "任务规划",
     priority: 4,
-    conflicts: Object.freeze(["coding"]),
+    conflicts: Object.freeze(["coding-agent-workflow"]),
     requires: Object.freeze([]),
     isDefault: false,
-    promptTemplate: "Act as a summarizer. Condense information, extract key points, and present findings concisely.",
-    tags: Object.freeze(["summarize", "summary", "condense", "extract", "brief"]),
+    promptTemplate: "Act as a task planner. Decompose goals into actionable steps, create roadmaps, and organize work.",
+    tags: Object.freeze(["plan", "planning", "task", "breakdown", "roadmap", "decompose", "规划", "计划", "拆解", "任务"]),
   }),
 
-  searching: Object.freeze({
+  "automation-workflows": Object.freeze({
     kind: "skill-prompt-contract-skill-definition",
     version: "skill-prompt-contract-draft-1",
-    id: "searching",
-    name: "信息搜索",
+    id: "automation-workflows",
+    name: "自动化工作流",
     priority: 5,
     conflicts: Object.freeze([]),
     requires: Object.freeze([]),
     isDefault: false,
-    promptTemplate: "Act as a research agent. Search, gather, and organize information from available sources.",
-    tags: Object.freeze(["search", "find", "research", "lookup", "query", "research-analysis", "read-only-analysis", "investigation"]),
+    promptTemplate: "Act as an automation agent. Build scripts, scheduled jobs, and automated workflows.",
+    tags: Object.freeze(["automation", "workflow", "script", "scheduled", "cron", "定时", "调度", "自动化", "脚本", "抓取", "爬取"]),
+  }),
+
+  "daily-diary": Object.freeze({
+    kind: "skill-prompt-contract-skill-definition",
+    version: "skill-prompt-contract-draft-1",
+    id: "daily-diary",
+    name: "日记记录",
+    priority: 6,
+    conflicts: Object.freeze([]),
+    requires: Object.freeze([]),
+    isDefault: false,
+    promptTemplate: "Act as a diary assistant. Record daily logs clearly and keep entries structured and concise.",
+    tags: Object.freeze(["diary", "daily", "journal", "log", "record", "note", "日记", "记录", "日报", "周报"]),
   }),
 
   "default-general": Object.freeze({
@@ -123,6 +136,13 @@ function isSafeContext(value) {
  * Build a flat set of normalized keyword strings from the context.
  * Examines: tags, intent, tools, capabilities, and a free-text description.
  */
+function splitKeywords(text = "") {
+  return normalizeString(text)
+    .split(/[\s,;.!?，。；：、\-_/()\[\]{}"'`]+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 2);
+}
+
 function extractHints(context = {}) {
   const safe = isSafeContext(context) ? context : {};
   const hints = new Set();
@@ -132,29 +152,38 @@ function extractHints(context = {}) {
     hints.add(tag);
   }
 
-  // Intent string — split on whitespace / punctuation for keywords
-  const intent = normalizeString(safe.intent);
-  if (intent) {
-    for (const word of intent.split(/[\s,;.]+/)) {
-      if (word.length >= 2) hints.add(word);
-    }
+  // Intent
+  for (const word of splitKeywords(safe.intent)) {
+    hints.add(word);
   }
 
-  // Tools array — indicates capability domain
+  // Tools / capabilities
   for (const tool of normalizeStringArray(safe.tools)) {
     hints.add(tool);
   }
-
-  // Capabilities array
   for (const cap of normalizeStringArray(safe.capabilities)) {
     hints.add(cap);
   }
 
-  // Free-text description
+  // Free text (natural language prompt)
   const description = normalizeString(safe.description ?? safe.text ?? "");
-  if (description) {
-    for (const word of description.split(/[\s,;.]+/)) {
-      if (word.length >= 2) hints.add(word);
+  for (const word of splitKeywords(description)) {
+    hints.add(word);
+  }
+
+  // Chinese / phrase-level intent mapping: adds extra tags for common domain phrases.
+  const phraseText = `${normalizeString(safe.intent)} ${description}`;
+  const phraseRules = [
+    { tests: ["自动化", "automation", "抓取", "爬取", "定时", "调度", "脚本", "workflow"], add: ["automation", "workflow", "script", "scheduled", "cron", "自动化", "脚本", "抓取"] },
+    { tests: ["计划", "规划", "拆解", "路线图", "plan", "planning", "roadmap", "breakdown", "任务"], add: ["plan", "planning", "task", "breakdown", "roadmap", "规划", "拆解"] },
+    { tests: ["日记", "记录", "日报", "周报", "diary", "journal", "log", "daily"], add: ["diary", "journal", "log", "record", "daily", "日记", "记录"] },
+    { tests: ["浏览器", "browser", "网页", "web", "页面"], add: ["browser", "web", "page", "crawl", "scrape"] },
+    { tests: ["探索", "调研", "explore", "research", "分析", "调试", "排查", "错误", "debug", "bug", "trace", "error"], add: ["debug", "explore", "research", "analysis", "investigation", "排查", "调试", "调研"] },
+    { tests: ["代码", "开发", "实现", "重构", "coding", "implement", "develop", "refactor", "编写"], add: ["code", "implement", "develop", "write", "代码", "开发"] },
+  ];
+  for (const rule of phraseRules) {
+    if (rule.tests.some((t) => phraseText.includes(t))) {
+      for (const token of rule.add) hints.add(token);
     }
   }
 
@@ -178,8 +207,16 @@ function matchSkillsByHints(hints) {
     if (seen.has(lowerHint)) continue;
     seen.add(lowerHint);
 
+    // Skip very short hints (len < 3) for substring matching to avoid false positives
+    const useSubstring = lowerHint.length >= 3;
+
     for (const skill of Object.values(SKILL_REGISTRY)) {
-      const overlappingTags = skill.tags.filter((tag) => tag === lowerHint || tag.includes(lowerHint) || lowerHint.includes(tag));
+      let overlappingTags;
+      if (useSubstring) {
+        overlappingTags = skill.tags.filter((tag) => tag === lowerHint || tag.includes(lowerHint) || lowerHint.includes(tag));
+      } else {
+        overlappingTags = skill.tags.filter((tag) => tag === lowerHint);
+      }
       if (overlappingTags.length > 0) {
         matches.push({
           skillId: skill.id,

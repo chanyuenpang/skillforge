@@ -45,36 +45,114 @@ function extractGoal(rawPrompt = '', goalHint = '') {
   const hint = normalizeText(goalHint || '');
   if (hint) return hint;
 
+  const text = normalizeText(rawPrompt);
+  if (!text) return '完成输入任务';
+
+  const phraseMap = [
+    { re: /(输入标准化层|规范化层)/i, out: '为 workflow-kit 增加输入标准化层，支持自然语言任务输入' },
+    { re: /(自然语言任务|自然语言输入|nlp)/i, out: '让系统可稳定处理自然语言任务并转成结构化输入' },
+    { re: /(提取|解析).{0,16}(goal|目标).{0,16}(constraint|约束|type|类型)/i, out: '稳定提取 goal/type/约束并形成可执行结构' },
+    { re: /(markdown)/i, out: '输出结构化 markdown 的任务骨架' },
+  ];
+  const matched = phraseMap.find((p) => p.re.test(text));
+  if (matched) return matched.out;
+
   const lines = rawPrompt.split(/\r?\n/);
-  let inGoalSection = false;
-  for (const line of lines) {
-    const l = line.trim();
-    if (/^#{1,3}\s*(目标|任务目标|任务$|Goal|Task|Objective)/i.test(l)) {
-      inGoalSection = true;
-      continue;
-    }
-    if (inGoalSection && l.length >= 8 && !l.startsWith('#') && !/^(source_skill|normalized_)/i.test(l)) {
-      return l.replace(/^[-*]\s*/, '').slice(0, 200);
-    }
+  const firstLine = lines.map((l) => l.trim()).find((l) => l && !l.startsWith('#') && !/^(source_skill|normalized_)/i.test(l));
+  if (firstLine) {
+    const cleaned = firstLine.replace(/^[-*]\s*/, '');
+    const colonIdx = cleaned.search(/[：:]/);
+    const core = colonIdx > 5 && colonIdx < 80 ? cleaned.slice(0, colonIdx) : cleaned;
+    return `围绕「${core.slice(0, 28)}」完成最小改动实现并保证可执行性`;
   }
 
-  for (const line of lines) {
-    const l = line.trim();
-    if (!l) continue;
-    if (l.startsWith('#') || /^(source_skill|normalized_)/i.test(l)) continue;
-    return l.replace(/^[-*]\s*/, '').slice(0, 200);
-  }
-
-  return rawPrompt.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) || '完成输入任务';
+  return '完成输入任务';
 }
 
 function extractConstraintLines(rawPrompt = '') {
-  const lines = rawPrompt
-    .split(/\r?\n/)
+  const clauses = rawPrompt
+    .split(/[\r?\n。；!?！？]+/)
     .map((l) => l.trim())
     .filter(Boolean);
 
-  return lines.filter((line) => /必须|禁止|不要|不得|仅|只|must|must not|do not|should not/i.test(line));
+  const granular = clauses.length <= 1
+    ? rawPrompt.split(/[,，：:]+/).map((s) => s.trim()).filter(Boolean)
+    : clauses;
+
+  const strictPatterns = [
+    /不做\s*ui/i,
+    /不改\s*(执行引擎|引擎|engine)/i,
+    /最小改动/i,
+    /不得|禁止|不要|must not|do not/i,
+  ];
+
+  return granular.filter((line) => {
+    const short = line.length <= 40;
+    if (!short) return false;
+    return strictPatterns.some((re) => re.test(line));
+  });
+}
+
+function isConstraintLike(line = '') {
+  return /必须|禁止|不要|不得|仅|只|不做|不改|must|must not|do not|only|without|should not/i.test(line);
+}
+
+function calcTextOverlapRatio(a = '', b = '') {
+  const left = normalizeText(a).toLowerCase();
+  const right = normalizeText(b).toLowerCase();
+  if (!left || !right) return 0;
+
+  const uniqueChars = new Set(left.replace(/\s+/g, ''));
+  if (uniqueChars.size === 0) return 0;
+
+  let overlap = 0;
+  for (const ch of uniqueChars) {
+    if (right.includes(ch)) overlap += 1;
+  }
+  return overlap / uniqueChars.size;
+}
+
+function isDescriptiveConstraintLine(line = '') {
+  return /(目标是|作用|用途|说明|当前|需要了解)/i.test(line);
+}
+
+function hasExecutionConsequence(line = '') {
+  const text = normalizeText(line);
+  if (!text) return false;
+
+  if (/(必须|禁止|不要|不得|仅|只|不做|不改|must|must not|do not|only|without|should not)/i.test(text)) {
+    return true;
+  }
+
+  if (/(避免|防止|否则|以免|确保)/.test(text)) return true;
+  return false;
+}
+
+function postProcessConstraints(constraints = [], goal = '') {
+  return uniq(constraints).filter((line) => {
+    const text = normalizeText(line);
+    if (!text) return false;
+    if (calcTextOverlapRatio(text, goal) > 0.7) return false;
+    if (isDescriptiveConstraintLine(text)) return false;
+    if (!hasExecutionConsequence(text)) return false;
+    return true;
+  });
+}
+
+function filterConstraints(constraints = [], goal = '') {
+  const goalText = normalizeText(goal).toLowerCase();
+  const filtered = uniq(constraints).filter((line) => {
+    const text = normalizeText(line);
+    if (!text) return false;
+    const lower = text.toLowerCase();
+    if (goalText && (lower === goalText || goalText.includes(lower) || lower.includes(goalText))) return false;
+    if (!isConstraintLike(text)) return false;
+    // Allow short constraints in Chinese (like 不做 UI, 不改 XX) — min 3 chars
+    if (text.length < 3) return false;
+    return true;
+  });
+
+  return postProcessConstraints(filtered, goal);
 }
 
 function buildExecutionSkeleton(resolved, assembled) {
@@ -226,17 +304,23 @@ export async function buildBetterPromptV1(input) {
     },
   });
 
+  // Extract assembler's semantic_goal to refine the raw goal
+  const assembledText = normalizeText(assembled?.promptText);
+  const semanticGoalMatch = assembledText.match(/## semantic_goal\n- (.+)/);
+  const refinedGoal = semanticGoalMatch ? normalizeText(semanticGoalMatch[1]) : goal;
+
   const boundaries = uniq([
     '输入主体仅使用 prompt、goal_hint、skillAssets',
     '程序仅做裁剪和拼装，不做程序化 skill 语义拆解',
     '技能语义理解与提炼交给 LLM',
   ]);
 
-  const constraints = uniq([
+  const constraints = filterConstraints([
     ...extractConstraintLines(rawPrompt),
     '保留 source_skill_ref + normalized_tag',
     '不扩展 UI / 审批 / run center',
-  ]);
+    '禁止原文搬运到 goal/constraints',
+  ], goal);
 
   const acceptance = uniq([
     '七区块模板完整输出',
@@ -252,9 +336,9 @@ export async function buildBetterPromptV1(input) {
 
   const outputReqs = buildOutputRequirements();
   const skeleton = buildExecutionSkeleton(resolved, assembled);
-  const template = buildV1Template({ goal, boundaries, skeleton, constraints, acceptance, delivery, outputReqs });
+  const template = buildV1Template({ goal: refinedGoal, boundaries, skeleton, constraints, acceptance, delivery, outputReqs });
 
-  const semantic_summary = `goal=${goal}; skills=${toArray(resolved?.resolvedSkills).map((s) => s.skillId).join(',') || 'none'}; tags=${normalizedTags.join(',') || 'none'}`;
+  const semantic_summary = `goal=${refinedGoal}; skills=${toArray(resolved?.resolvedSkills).map((s) => s.skillId).join(',') || 'none'}; tags=${normalizedTags.join(',') || 'none'}`;
 
   const output = {
     version: 'betterprompt.v1',
@@ -262,7 +346,7 @@ export async function buildBetterPromptV1(input) {
     input: { prompt: rawPrompt, goal_hint: goal_hint || undefined, skillAssets: skillAssets || undefined },
     output: {
       sections: {
-        goal,
+        goal: refinedGoal,
         boundaries,
         execution_skeleton: skeleton,
         constraints,
@@ -290,7 +374,7 @@ export async function buildBetterPromptV1(input) {
 
   const packagePayload = buildV1PromptPackage({
     promptText: rawPrompt,
-    goal,
+    goal: refinedGoal,
     output,
     constraints,
     delivery,

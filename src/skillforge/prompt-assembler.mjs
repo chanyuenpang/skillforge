@@ -54,6 +54,35 @@ function cloneObject(value, fallback = {}) {
   return isPlainObject(value) ? { ...value } : { ...fallback };
 }
 
+function splitSentences(text) {
+  return normalizeString(text)
+    .split(/[\n。！？!?；;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function extractConstraintCandidates(text = "") {
+  const indicators = /(必须|不得|禁止|不要|仅|只|不做|不改|must|must not|do not|only|without)\b/i;
+  return splitSentences(text)
+    .map((s) => s.replace(/^[-*]\s*/, "").trim())
+    .filter((s) => indicators.test(s));
+}
+
+function summarizeGoalFromText(text = "", skills = []) {
+  const skillIds = skills.map((s) => s.skillId);
+  const hasWorkflow = skillIds.some((id) => /workflow|automation/i.test(id));
+  const hasPlanning = skillIds.some((id) => /plan/i.test(id));
+  const hasCoding = skillIds.some((id) => /coding|debug|review/i.test(id));
+
+  const base = splitSentences(text)[0] || "完成任务并输出可执行结果";
+  let taskType = "任务执行";
+  if (hasWorkflow) taskType = "工作流能力改造";
+  else if (hasPlanning) taskType = "任务规划优化";
+  else if (hasCoding) taskType = "代码实现与修复";
+
+  return `${taskType}：聚焦${base.slice(0, 40)}，以最小改动达成可稳定执行。`;
+}
+
 // ─┬─ Prompt text aggregation ────────────────────────────────────────────────
 
 /**
@@ -125,6 +154,7 @@ export function assemblePrompt({
   resolvedSkills = [],
   options = {},
 } = {}) {
+  // 禁止原文搬运到 goal/constraints
   if (!Array.isArray(resolvedSkills)) {
     throw new TypeError("assemblePrompt: resolvedSkills must be an array");
   }
@@ -134,6 +164,15 @@ export function assemblePrompt({
   const separator = normalizeString(options.separator) || "\n\n";
 
   const promptParts = aggregatePromptParts(resolvedSkills);
+  const semanticSource = `${preamble}${separator}${suffix}`.trim();
+  const semanticSummary = normalizeString(options.semanticSummary || options.summary || "");
+  const semanticGoal = semanticSummary || (semanticSource ? `${semanticSource.slice(0, 100)}…` : summarizeGoalFromText(semanticSource, resolvedSkills));
+  const constraintIndicators = /(不要|不能|禁止|必须|只做|仅|不超过|必须保证)/;
+  const semanticConstraints = splitSentences(semanticSource)
+    .map((s) => s.replace(/^[-*]\s*/, "").trim())
+    .filter((s) => constraintIndicators.test(s))
+    .filter((s) => !semanticGoal.includes(s));
+
   let promptText = promptParts
     .filter((p) => p.text.trim().length > 0)
     .map((p) => p.text.trim())
@@ -141,6 +180,17 @@ export function assemblePrompt({
 
   if (preamble) promptText = promptText ? preamble + separator + promptText : preamble;
   if (suffix) promptText = promptText ? promptText + separator + suffix : suffix;
+
+  const antiCopyRule = '规则：禁止原文搬运到 goal/constraints，必须重述与提炼。';
+  const semanticBlock = [
+    '## semantic_goal',
+    `- ${semanticGoal}`,
+    '',
+    '## semantic_constraints',
+    ...(semanticConstraints.length > 0 ? semanticConstraints.map((c) => `- ${c}`) : ['- 无显式硬约束，按最小改动与可执行性约束处理']),
+    `- ${antiCopyRule}`,
+  ].join('\n');
+  promptText = promptText ? `${promptText}${separator}${semanticBlock}` : semanticBlock;
 
   const referencedSkills = buildReferencedSkills(resolvedSkills);
   const metadata = buildAssemblerMetadata({ resolvedSkills, options });

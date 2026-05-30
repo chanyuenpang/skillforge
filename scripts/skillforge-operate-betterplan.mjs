@@ -10,6 +10,8 @@
  * Outputs structured task skeleton as JSON.
  * No execution records, no governance, no run center.
  */
+import { appendFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { runBetterPlan } from '../src/skillforge/betterplan-pipeline.mjs';
 
 function parseArgs(argv) {
@@ -47,6 +49,7 @@ async function readStdinIfNeeded() {
 }
 
 async function main() {
+  const startTime = Date.now();
   const args = parseArgs(process.argv.slice(2));
   const stdinPlan = await readStdinIfNeeded();
   const plan = args.plan || stdinPlan;
@@ -57,32 +60,46 @@ async function main() {
     process.exit(1);
   }
 
-  const output = await runBetterPlan({
-    plan,
-    ...(args.goalHint ? { goal_hint: args.goalHint } : {}),
-  });
+  const logPath = `${homedir()}/.skillforge/execution-log.jsonl`;
+  const executionId = `el-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  if (!output.result) {
-    console.error(JSON.stringify({ error: output.error, meta: output.meta }, null, 2));
-    process.exit(1);
+  try {
+    const output = await runBetterPlan({
+      plan,
+      ...(args.goalHint ? { goal_hint: args.goalHint } : {}),
+    });
+
+    if (!output.result) {
+      const failedLogLine = { ts: new Date().toISOString(), source: 'betterPlan', input: plan, error: typeof output.error === 'string' ? output.error : JSON.stringify(output.error) };
+      appendFileSync(logPath, `${JSON.stringify(failedLogLine)}\n`);
+      console.error(JSON.stringify({ error: output.error, meta: output.meta }, null, 2));
+      process.exit(1);
+    }
+
+    const result = {
+      version: 'betterplan.v1',
+      contract: { input: '{ plan: string, goal_hint?: string }', output: 'task-skeleton' },
+      input: { plan: plan.slice(0, 120) + (plan.length > 120 ? '...' : ''), goal_hint: args.goalHint || undefined },
+      output: output.result,
+      meta: {
+        llmCalled: output.meta.llmCalled,
+        llmDurationMs: output.meta.llmDurationMs,
+        model: output.meta.model,
+        validationPassed: output.meta.validationPassed,
+        fallbackUsed: output.meta.fallbackUsed,
+        warnings: output.meta.warnings,
+      },
+    };
+
+    const completedLogLine = { ts: new Date().toISOString(), source: 'betterPlan', input: plan, output: JSON.stringify(result) };
+    appendFileSync(logPath, `${JSON.stringify(completedLogLine)}\n`);
+
+    console.log(JSON.stringify(result, null, 2));
+  } catch (error) {
+    const failedLogLine = { ts: new Date().toISOString(), source: 'betterPlan', input: plan, error: error.message };
+    appendFileSync(logPath, `${JSON.stringify(failedLogLine)}\n`);
+    throw error;
   }
-
-  const result = {
-    version: 'betterplan.v1',
-    contract: { input: '{ plan: string, goal_hint?: string }', output: 'task-skeleton' },
-    input: { plan: plan.slice(0, 120) + (plan.length > 120 ? '...' : ''), goal_hint: args.goalHint || undefined },
-    output: output.result,
-    meta: {
-      llmCalled: output.meta.llmCalled,
-      llmDurationMs: output.meta.llmDurationMs,
-      model: output.meta.model,
-      validationPassed: output.meta.validationPassed,
-      fallbackUsed: output.meta.fallbackUsed,
-      warnings: output.meta.warnings,
-    },
-  };
-
-  console.log(JSON.stringify(result, null, 2));
 }
 
 main();

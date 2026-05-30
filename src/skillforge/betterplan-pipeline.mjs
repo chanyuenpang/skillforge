@@ -1,5 +1,5 @@
 /**
- * betterplan-pipeline.mjs — betterPlan v1 pipeline
+ * betterplan-pipeline.mjs - betterPlan v1 pipeline
  *
  * Flow:
  *   1. Validate input against BetterPlanInput contract
@@ -60,11 +60,11 @@ function buildFallbackFromPlan(planText, goalHint) {
 
   const keyPoints = contentLines.length >= 2
     ? contentLines.slice(0, 3)
-    : ['最小要点：LLM 输出不可用，计划文本未提取到关键点'];
+    : ['最小要点:LLM 输出不可用,计划文本未提取到关键点'];
 
   return {
     goal,
-    boundaries: ['无明确边界约束（LLM 输出不可用，需人工补充）'],
+    boundaries: ['无明确边界约束(LLM 输出不可用,需人工补充)'],
     skeleton: FALLBACK_SKELETON_TITLES.map((title, i) => ({
       id: `s${i + 1}`,
       title,
@@ -72,8 +72,8 @@ function buildFallbackFromPlan(planText, goalHint) {
       dependsOn: i === 0 ? [] : [`s${i}`],
     })),
     keyPoints,
-    order_rationale: 'LLM 输出不可用，按通用模板排序',
-    gaps: ['提取失败：LLM 输出无法解析，未识别到缺口信息'],
+    order_rationale: 'LLM 输出不可用,按通用模板排序',
+    gaps: ['提取失败:LLM 输出无法解析,未识别到缺口信息'],
     closure_condition: '所有步骤完成并经人工确认',
     confidence: 0.3,
   };
@@ -139,13 +139,13 @@ function cropPlanText(plan, maxChars = MAX_PLAN_CHARS) {
   const head = text.slice(0, headLen);
   const tail = text.slice(-tailLen);
 
-  return `${head}\n\n... [中间内容已裁剪，保留开头与结尾] ...\n\n${tail}`;
+  return `${head}\n\n... [中间内容已裁剪,保留开头与结尾] ...\n\n${tail}`;
 }
 
 // ── Step 2: Assemble LLM Prompt ──────────────────────────────────────────────
 
 function buildExtractionPrompt(planText, goalHint) {
-  const hintLine = hasText(goalHint) ? `额外目标提示：${goalHint}\n\n` : '';
+  const hintLine = hasText(goalHint) ? `额外目标提示:${goalHint}\n\n` : '';
 
   return `你是任务骨架抽取器。请仔细阅读以下计划文本，抽取结构化的任务骨架。
 
@@ -159,21 +159,30 @@ ${planText}
 - goal：用一句话概括计划目标（中文）
 - plan_title：建议的计划标题（可选，最多30字）
 - boundaries：明确的边界/硬约束列表（至少1条），每条不超过80字
-- skeleton：按执行顺序排列的任务骨架步骤数组，每个步骤：
+- skeleton：按执行顺序排列的任务骨架步骤数组，每个步骤必须包含以下字段：
   - id：唯一标识（如 "s1", "s2"...）
   - title：简短任务名（中文，不超过20字）
   - order：执行序号（1开始）
-  - dependsOn：依赖的步骤id数组（无依赖则为空数组）
+  - action：可独立执行的具体动作描述（中文，必须包含动词+对象，例如"创建 src/normalize.mjs 并导出 normalizeInput 函数"）
+  - expected_output：该步骤完成后的具体产出物（例如"产出 normalize.mjs 文件，包含 normalizeInput 函数"）
+  - verification：验收信号，如何确认此步完成（例如"通过 node -e 'require("./normalize")' 无报错"）
+  - dependsOn：前置步骤的id数组，表示必须先完成哪些步骤（无依赖则为空数组）
+  - dependencies：该步骤所需的前置条件列表（字符串数组，描述需要什么就绪才能开始，例如["已确认输入数据结构"]）
+  - blockers：可能的阻塞点列表（字符串数组，描述可能卡住的原因，例如["不确定输入字段列表"]，无阻塞则为空数组）
 - order_rationale：解释为什么这样排序（中文）
 - keyPoints：提取到的关键要点/主要结论（至少1条，常见输入下不应为空）
-- gaps：识别到的缺口/风险/未明确事项（至少能区分“无缺口”与“提取失败/缺信息”）
+- gaps：识别到的缺口/风险/未明确事项（至少能区分"无缺口"与"提取失败/缺信息"）
 - closure_condition：如何判断目标已完成（中文，一句话）
 - confidence：你对输出的信心度（0.0-1.0）
 
 重要：
 - 只提取计划中明确提到的内容，不要自己编造
 - skeleton 步骤数量3-10个，宁少勿多
-- 每个步骤应该是一个清晰的阶段性任务，不是原子操作
+- 每个步骤必须是可独立开始和完成的动作；应写成具体操作，不要写成阶段标题或抽象路线图（如"实现标准化层"是阶段标题，"创建 normalize.mjs 并实现 normalizeInput() 函数"是具体动作）
+- action 必须是动词+对象格式，明确做什么、对什么做
+- expected_output 和 verification 必须具体可检查，不能写"完成实现"这种空泛描述
+- gaps 必须具体到字段/配置级别（例如"缺输入字段白名单定义"而不是"信息不足"）
+- dependencies 和 blockers 帮助执行者预判卡点，不能留空泛内容
 - 边界应该从计划文本中的约束、限制、非目标内容中提取`;
 }
 
@@ -184,7 +193,7 @@ async function callLLM(prompt, providerConfig, maxTokens = DEFAULT_MAX_OUTPUT_TO
   const model = llm?.model || 'deepseek-chat';
 
   if (!apiKey) {
-    throw new Error('MISSING_API_KEY: 未找到 LLM API Key，请检查 openclaw.json 或环境变量');
+    throw new Error('MISSING_API_KEY: 未找到 LLM API Key,请检查 openclaw.json 或环境变量');
   }
 
   if (!endpoint) {
@@ -196,7 +205,7 @@ async function callLLM(prompt, providerConfig, maxTokens = DEFAULT_MAX_OUTPUT_TO
     messages: [
       {
         role: 'system',
-        content: '你是一个严谨的计划骨架抽取助手。只输出有效 JSON，不输出其他内容。',
+        content: '你是一个严谨的计划骨架抽取助手。只输出有效 JSON,不输出其他内容。',
       },
       { role: 'user', content: prompt },
     ],
@@ -293,21 +302,33 @@ function guardAndNormalize(raw, planText, goalHint) {
     .map((b) => String(b).trim().slice(0, 120));
 
   if (boundaries.length === 0) {
-    boundaries.push('无明确边界约束（建议补充）');
+    boundaries.push('无明确边界约束(建议补充)');
   }
 
   // Normalize skeleton
   let skeleton = Array.isArray(raw.skeleton) ? raw.skeleton : [];
   skeleton = skeleton
     .filter((s) => isPlainObject(s))
-    .map((s, index) => ({
-      id: hasText(s?.id) ? String(s.id).trim() : `s${index + 1}`,
-      title: hasText(s?.title) ? String(s.title).trim().slice(0, 40) : `步骤 ${index + 1}`,
-      order: Number.isFinite(s?.order) && s.order > 0 ? s.order : index + 1,
-      dependsOn: Array.isArray(s?.dependsOn)
-        ? s.dependsOn.filter((d) => typeof d === 'string' && d.trim()).map((d) => d.trim())
-        : [],
-    }));
+    .map((s, index) => {
+      const id = hasText(s?.id) ? String(s.id).trim() : `s${index + 1}`;
+      return {
+        id,
+        title: hasText(s?.title) ? String(s.title).trim().slice(0, 40) : `步骤 ${index + 1}`,
+        order: Number.isFinite(s?.order) && s.order > 0 ? s.order : index + 1,
+        action: hasText(s?.action) ? String(s.action).trim() : (hasText(s?.title) ? String(s.title).trim() : ''),
+        expected_output: hasText(s?.expected_output) ? String(s.expected_output).trim() : '',
+        verification: hasText(s?.verification) ? String(s.verification).trim() : '',
+        dependsOn: Array.isArray(s?.dependsOn)
+          ? s.dependsOn.filter((d) => typeof d === 'string' && d.trim()).map((d) => d.trim())
+          : [],
+        dependencies: Array.isArray(s?.dependencies)
+          ? s.dependencies.filter((d) => typeof d === 'string' && d.trim()).map((d) => d.trim())
+          : [],
+        blockers: Array.isArray(s?.blockers)
+          ? s.blockers.filter((d) => typeof d === 'string' && d.trim()).map((d) => d.trim())
+          : [],
+      };
+    });
 
   // Sort by order
   skeleton.sort((a, b) => a.order - b.order);
@@ -320,13 +341,18 @@ function guardAndNormalize(raw, planText, goalHint) {
       id: `s${i + 1}`,
       title,
       order: i + 1,
+      action: title,
+      expected_output: '',
+      verification: '',
       dependsOn: i === 0 ? [] : [`s${i}`],
+      dependencies: [],
+      blockers: [],
     }));
   }
 
   const makeMinimalKeyPoint = (source) => {
     const text = hasText(source) ? String(source).trim().slice(0, 200) : '';
-    return text || '1. 最小要点：LLM 输出不足，已启用兜底提取';
+    return text || '1. 最小要点:LLM 输出不足,已启用兜底提取';
   };
 
   // Normalize key points
@@ -380,8 +406,8 @@ function guardAndNormalize(raw, planText, goalHint) {
 
   if (gaps.length === 0) {
     gaps = gapsExtractFailed
-      ? ['提取失败：未从 LLM 输出中识别到缺口信息']
-      : ['无缺口：计划未明确提出待补充项'];
+      ? ['提取失败:未从 LLM 输出中识别到缺口信息']
+      : ['无缺口:计划未明确提出待补充项'];
   }
 
   // Other fields
@@ -416,9 +442,9 @@ function guardAndNormalize(raw, planText, goalHint) {
  * runBetterPlan(input) → { result, meta }
  *
  * @param {object} input
- * @param {string} input.plan       — raw plan text (required)
- * @param {string} [input.goal_hint] — optional high-level hint
- * @param {number} [input.max_tokens] — optional LLM max_tokens override
+ * @param {string} input.plan       - raw plan text (required)
+ * @param {string} [input.goal_hint] - optional high-level hint
+ * @param {number} [input.max_tokens] - optional LLM max_tokens override
  * @returns {Promise<object>} { result: BetterPlanOutput | null, meta: {...} }
  */
 export async function runBetterPlan(input) {
@@ -499,7 +525,7 @@ export async function runBetterPlan(input) {
   } catch (err) {
     meta.errors.push({ stage: 'llm_parse', message: err.message, rawSnippet: rawOutput.slice(0, 200) });
     meta.fallbackUsed = true;
-    meta.warnings.push(`LLM 输出解析失败，已使用结构兜底: ${err.message}`);
+    meta.warnings.push(`LLM 输出解析失败,已使用结构兜底: ${err.message}`);
     const fallbackResult = buildFallbackFromPlan(planText, input.goal_hint);
     const fallbackValidation = validateBetterPlanOutput(fallbackResult);
     meta.validationPassed = fallbackValidation.valid;
