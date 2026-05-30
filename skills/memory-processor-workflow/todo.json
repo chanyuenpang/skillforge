@@ -1,0 +1,67 @@
+{
+  "generatedAt": "2026-05-29T19:00:17.260905+00:00",
+  "skill": "memory-processor-workflow",
+  "count": 12,
+  "items": [
+    {
+      "source": "workspace",
+      "memory_path": "/home/yankeeting/.openclaw/workspace/MEMORY.md",
+      "kind": "workspace"
+    },
+    {
+      "source": "workspace-yan",
+      "memory_path": "/home/yankeeting/.openclaw/workspace-yan/MEMORY.md",
+      "kind": "workspace"
+    },
+    {
+      "source": "NewAgentPet",
+      "memory_path": "/home/yankeeting/.openclaw/.projects/NewAgentPet/memory.md",
+      "kind": "project"
+    },
+    {
+      "source": "feishu-card-smoke",
+      "memory_path": "/home/yankeeting/.openclaw/.projects/feishu-card-smoke/memory.md",
+      "kind": "project"
+    },
+    {
+      "source": "gov-notice-daily-scraper",
+      "memory_path": "/home/yankeeting/.openclaw/.projects/gov-notice-daily-scraper/memory.md",
+      "kind": "project"
+    },
+    {
+      "source": "m5stack",
+      "memory_path": "/home/yankeeting/.openclaw/.projects/m5stack/memory.md",
+      "kind": "project"
+    },
+    {
+      "source": "mission-control",
+      "memory_path": "/home/yankeeting/.openclaw/.projects/mission-control/memory.md",
+      "kind": "project"
+    },
+    {
+      "source": "openclaw-dev",
+      "memory_path": "/home/yankeeting/.openclaw/.projects/openclaw-dev/memory.md",
+      "kind": "project"
+    },
+    {
+      "source": "skillforge",
+      "memory_path": "/home/yankeeting/.openclaw/.projects/skillforge/memory.md",
+      "kind": "project"
+    },
+    {
+      "source": "stack-chan",
+      "memory_path": "/home/yankeeting/.openclaw/.projects/stack-chan/memory.md",
+      "kind": "project"
+    },
+    {
+      "source": "tiny-world",
+      "memory_path": "/home/yankeeting/.openclaw/.projects/tiny-world/memory.md",
+      "kind": "project"
+    },
+    {
+      "source": "workflow-kit",
+      "memory_path": "/home/yankeeting/.openclaw/.projects/workflow-kit/memory.md",
+      "kind": "project"
+    }
+  ]
+}
