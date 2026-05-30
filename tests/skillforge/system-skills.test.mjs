@@ -13,4 +13,6 @@ test('betterplan review skill emphasizes execution-plan atomicity', () => {
   assert.match(prompt, /atomicity as a primary review rule/i);
   assert.match(prompt, /one subagent can finish it independently/i);
   assert.match(prompt, /objective[\s\S]*scope[\s\S]*inputs[\s\S]*expected output/i);
+  assert.match(prompt, /implementation, verification, and review should usually be separate tasks/i);
+  assert.match(prompt, /verb-first/i);
 });

@@ -120,10 +120,15 @@ Review this like a planning-review skill:
   - the plan tasks have the right granularity for the plan type
   - the plan makes task boundaries, dependencies, and done criteria legible
   - the plan does not mix too many responsibilities inside one task
+- prefer the best habits from strong planning skills:
+  - action items should be concrete and preferably verb-first
+  - implementation, verification, and review should usually be separate tasks rather than one mixed task
+  - validation should be visible as its own part of the plan, not implied vaguely at the end
 - if the plan is an execution plan, treat atomicity as a primary review rule
 - for an execution plan, a task should be atomic enough that one subagent can finish it independently without extra back-and-forth clarification
 - if one task mixes implementation, verification, review, environment setup, or reporting in a way that breaks atomicity, call that out clearly
 - if task scope is too large, too vague, or bundles multiple deliverables, call that out as a granularity problem
+- if several tasks are individually clear but ordered badly or missing dependency edges, call that out as a sequencing problem
 - if useful, recommend a better task shape using ideas like:
   - objective
   - scope
