@@ -1,6 +1,8 @@
 import path from 'node:path';
-import { runRegistryScanPipeline } from './registry-scan-pipeline.mjs';
+import { RELATIONAL_INDEX_PATH } from './relational-index.sqlite.mjs';
+import { loadIndexSnapshot, recallSkillBundle } from './relational-recall.mjs';
 import { callJsonModel } from './llm-json.mjs';
+import { extractTaskRecord } from './task-extraction.mjs';
 
 function hasText(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -25,16 +27,26 @@ function tokenize(text = '') {
     .filter((token) => token.length >= 2));
 }
 
-function collectContextSignals(context = {}) {
+function collectContextSignals(context = {}, taskRecord = null) {
   const signals = uniq([
     ...toArray(context.tags),
     ...toArray(context.tools),
     ...toArray(context.capabilities),
+    ...toArray(taskRecord?.taskTypes),
+    ...toArray(taskRecord?.workflowStages),
+    ...toArray(taskRecord?.artifactTargets),
+    ...toArray(taskRecord?.toolHints),
+    ...toArray(taskRecord?.agentArchetypes),
+    ...toArray(taskRecord?.constraints),
+    ...toArray(taskRecord?.reportExpectations),
+    ...toArray(taskRecord?.openTags),
     ...tokenize(context.intent || ''),
     ...tokenize(context.description || context.text || ''),
+    ...tokenize(taskRecord?.summary || ''),
   ]);
 
   return {
+    taskRecord,
     tags: uniq(toArray(context.tags)),
     tools: uniq(toArray(context.tools)),
     intent: hasText(context.intent) ? context.intent.trim() : '',
@@ -157,6 +169,7 @@ function summarizeCandidateForDebug(candidate) {
     entrypointHints: candidate.entrypointHints || [],
     workflowSkeletonSummary: candidate.workflowSkeletonSummary || '',
     heuristicScore: candidate.heuristicScore,
+    recallExplain: candidate.recallExplain || null,
     heuristicOverlap: candidate.heuristicOverlap || [],
     toolOverlap: candidate.toolOverlap || [],
     sourceRef: candidate.sourceRef || null,
@@ -216,22 +229,33 @@ function normalizeLmSelection(data, candidates) {
 export async function debugResolveSkills({
   context = {},
   explicitSkills = [],
-  sourceDir = path.resolve('skills'),
-  sourceId = 'local-skills',
+  sourceId = 'relational-index',
   maxCandidates = 8,
+  dbPath = RELATIONAL_INDEX_PATH,
 } = {}) {
-  const contextSignals = collectContextSignals(context);
-  const scan = await runRegistryScanPipeline({ sourceDir, sourceId });
-  const entries = scan.records.filter((record) => record.status === 'ok' && record.fields).map((record) => record.fields);
-  const { shortlisted, rejected } = topCandidates(entries, contextSignals, explicitSkills, maxCandidates);
+  const taskExtraction = await extractTaskRecord({ context });
+  const contextSignals = collectContextSignals(context, taskExtraction.record);
+  const snapshot = loadIndexSnapshot({ dbPath });
+  const lexicalBaseline = topCandidates(snapshot.entries, contextSignals, explicitSkills, maxCandidates);
+  const { shortlisted, rejected, anchors } = recallSkillBundle({
+    snapshot,
+    taskRecord: taskExtraction.record,
+    context,
+    explicitSkills,
+    maxCandidates,
+  });
   const routingPrompt = buildRoutingPrompt(contextSignals, shortlisted);
 
   return {
     sourceId,
-    scanId: scan.scanId,
-    scanArtifactPath: scan.artifactPath,
+    indexVersion: snapshot.meta.indexVersion,
+    scanId: snapshot.meta.scanId,
+    dbPath: snapshot.dbPath,
+    taskExtraction,
     contextSignals,
-    totalIndexedSkills: entries.length,
+    recallAnchors: anchors,
+    lexicalBaseline: lexicalBaseline.shortlisted.map(summarizeCandidateForDebug),
+    totalIndexedSkills: snapshot.entries.length,
     shortlisted: shortlisted.map(summarizeCandidateForDebug),
     rejected,
     routingPrompt,
@@ -241,21 +265,27 @@ export async function debugResolveSkills({
 export async function resolveSkills({
   context = {},
   explicitSkills = [],
-  sourceDir = path.resolve('skills'),
-  sourceId = 'local-skills',
+  sourceId = 'relational-index',
   maxCandidates = 8,
+  dbPath = RELATIONAL_INDEX_PATH,
 } = {}) {
-  const contextSignals = collectContextSignals(context);
-  const scan = await runRegistryScanPipeline({ sourceDir, sourceId });
-  const entries = scan.records.filter((record) => record.status === 'ok' && record.fields).map((record) => record.fields);
-
-  const { shortlisted, rejected } = topCandidates(entries, contextSignals, explicitSkills, maxCandidates);
+  const taskExtraction = await extractTaskRecord({ context });
+  const contextSignals = collectContextSignals(context, taskExtraction.record);
+  const snapshot = loadIndexSnapshot({ dbPath });
+  const lexicalBaseline = topCandidates(snapshot.entries, contextSignals, explicitSkills, maxCandidates);
+  const { shortlisted, rejected, anchors } = recallSkillBundle({
+    snapshot,
+    taskRecord: taskExtraction.record,
+    context,
+    explicitSkills,
+    maxCandidates,
+  });
   if (shortlisted.length === 0) {
     return {
       kind: 'skill-routing-result',
       version: '1.0.0',
       sourceId,
-      scanId: scan.scanId,
+      scanId: snapshot.meta.scanId,
       candidates: [],
       selected: [],
       rejected,
@@ -269,10 +299,15 @@ export async function resolveSkills({
         explicitSkills,
       },
       metadata: {
+        taskExtraction,
+        recallAnchors: anchors,
+        lexicalBaseline: lexicalBaseline.shortlisted.map(summarizeCandidateForDebug),
         llmCalled: false,
         model: null,
         candidateCount: 0,
-        scanArtifactPath: scan.artifactPath,
+        indexVersion: snapshot.meta.indexVersion,
+        scanId: snapshot.meta.scanId,
+        dbPath: snapshot.dbPath,
         routingPromptPreview: '',
         rawModelSelection: null,
         unmatchedSelectedIds: [],
@@ -311,7 +346,7 @@ export async function resolveSkills({
     kind: 'skill-routing-result',
     version: '1.0.0',
     sourceId,
-    scanId: scan.scanId,
+    scanId: snapshot.meta.scanId,
     candidates: shortlisted,
     selected,
     rejected: finalRejected,
@@ -324,11 +359,16 @@ export async function resolveSkills({
       ...contextSignals,
       explicitSkills,
     },
-    metadata: {
+      metadata: {
+      taskExtraction,
+      recallAnchors: anchors,
+      lexicalBaseline: lexicalBaseline.shortlisted.map(summarizeCandidateForDebug),
       llmCalled: lmResult.meta.llmCalled,
       model: lmResult.meta.model,
       candidateCount: shortlisted.length,
-      scanArtifactPath: scan.artifactPath,
+      indexVersion: snapshot.meta.indexVersion,
+      scanId: snapshot.meta.scanId,
+      dbPath: snapshot.dbPath,
       routingPromptPreview: buildRoutingPrompt(contextSignals, shortlisted).slice(0, 4000),
       rawModelSelection: lmResult.data,
       unmatchedSelectedIds: normalized.unmatchedSelectedIds,

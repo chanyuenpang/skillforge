@@ -73,10 +73,24 @@ async function main() {
   console.log(`indexed skills: ${debug.totalIndexedSkills}`);
   console.log(`shortlisted: ${debug.shortlisted.length}`);
   console.log(`rejected: ${debug.rejected.length}`);
+  console.log(`index version: ${debug.indexVersion || '-'}`);
+  console.log(`scan id: ${debug.scanId || '-'}`);
+  console.log(`db path: ${debug.dbPath || '-'}`);
+  console.log('task extraction:', JSON.stringify(debug.taskExtraction?.record || {}, null, 2));
+  console.log('recall anchors:', (debug.recallAnchors || []).join(', '));
   console.log('context signals:', debug.contextSignals.signals.join(', '));
+  if ((debug.lexicalBaseline || []).length > 0) {
+    console.log('lexical baseline candidates:');
+    for (const candidate of debug.lexicalBaseline) {
+      console.log(`- ${candidate.id} score=${candidate.heuristicScore}`);
+    }
+  }
   console.log('shortlisted candidates:');
   for (const candidate of debug.shortlisted) {
-    console.log(`- ${candidate.id} score=${candidate.heuristicScore} overlap=${candidate.heuristicOverlap.join('|') || '-'} tools=${candidate.requiredTools.join('|') || '-'}`);
+    const explain = candidate.recallExplain || {};
+    const matchedTags = (explain.matchedTags || []).map((item) => item.name).join('|') || '-';
+    const matchedFields = (explain.matchedFields || []).map((item) => `${item.field}:${(item.values || []).join('|')}`).join(';') || '-';
+    console.log(`- ${candidate.id} score=${candidate.heuristicScore} tags=${matchedTags} fields=${matchedFields} tools=${candidate.requiredTools.join('|') || '-'}`);
   }
   console.log('routing prompt preview:');
   console.log(debug.routingPrompt);
