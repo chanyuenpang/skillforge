@@ -92,18 +92,24 @@ function resolveProviderConfig(config = {}) {
 
   const openaiEnvActive = hasText(process.env.OPENAI_API_KEY) || hasText(process.env.OPENAI_BASE_URL);
   const deepseekEnvActive = hasText(process.env.DEEPSEEK_API_KEY) || hasText(process.env.DEEPSEEK_BASE_URL);
-  const openaiConfigActive = hasText(openaiProvider?.apiKey) || hasText(openaiProvider?.baseURL) || hasText(openaiProvider?.baseUrl) || hasText(getProviderModel(openaiProvider));
-  const deepseekConfigActive = hasText(deepseekProvider?.apiKey) || hasText(deepseekProvider?.baseURL) || hasText(deepseekProvider?.baseUrl) || hasText(getProviderModel(deepseekProvider));
+  const openaiConfigHasKey = hasText(openaiProvider?.apiKey);
+  const deepseekConfigHasKey = hasText(deepseekProvider?.apiKey);
+  const openaiConfigActive = openaiConfigHasKey || hasText(openaiProvider?.baseURL) || hasText(openaiProvider?.baseUrl) || hasText(getProviderModel(openaiProvider));
+  const deepseekConfigActive = deepseekConfigHasKey || hasText(deepseekProvider?.baseURL) || hasText(deepseekProvider?.baseUrl) || hasText(getProviderModel(deepseekProvider));
 
   const selectedProvider = openaiEnvActive
     ? openaiProvider
     : deepseekEnvActive
       ? deepseekProvider
-      : openaiConfigActive
+      : openaiConfigHasKey
         ? openaiProvider
-        : deepseekConfigActive
+        : deepseekConfigHasKey
           ? deepseekProvider
-          : (openaiProvider || deepseekProvider);
+          : openaiConfigActive
+            ? openaiProvider
+            : deepseekConfigActive
+              ? deepseekProvider
+              : (openaiProvider || deepseekProvider);
 
   const envApiKey = openaiEnvActive
     ? process.env.OPENAI_API_KEY || null
