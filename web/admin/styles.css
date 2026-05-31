@@ -298,12 +298,28 @@ input {
   margin-bottom: 12px;
 }
 
+.runs-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .search-input {
   width: min(100%, 420px);
   padding: 14px 16px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.84);
+}
+
+.filter-select {
+  padding: 12px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
 }
 
 .subtle-note {
@@ -496,6 +512,14 @@ input {
   .toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .runs-toolbar-controls {
+    justify-content: stretch;
+  }
+
+  .runs-toolbar-controls > * {
+    width: 100%;
   }
 
   .detail-drawer[data-mode='run'] .drawer-panel {

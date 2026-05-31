@@ -5,6 +5,8 @@ const state = {
   runsState: null,
   skillQuery: '',
   runQuery: '',
+  runTypeFilter: 'all',
+  runSort: 'newest',
 };
 
 const navButtons = [...document.querySelectorAll('.nav-pill')];
@@ -179,18 +181,35 @@ function renderSkills() {
 }
 
 function filteredRuns() {
-  const runs = state.runsState?.runs || [];
+  let runs = state.runsState?.runs || [];
   const query = state.runQuery.trim().toLowerCase();
-  if (!query) return runs;
-  return runs.filter((run) => {
-    const haystack = [
-      run.kind,
-      run.inputDisplayText || run.inputText,
-      run.outputText,
-      ...(run.matchedSkills || []).map((skill) => skill.name || skill.id),
-    ].join(' ').toLowerCase();
-    return haystack.includes(query);
+  if (state.runTypeFilter === 'prompt') {
+    runs = runs.filter((run) => run.kind === 'Prompt Routing');
+  } else if (state.runTypeFilter === 'plan') {
+    runs = runs.filter((run) => run.kind === 'Plan Review');
+  }
+
+  if (query) {
+    runs = runs.filter((run) => {
+      const haystack = [
+        run.kind,
+        run.inputDisplayText || run.inputText,
+        run.outputText,
+        ...(run.matchedSkills || []).map((skill) => skill.name || skill.id),
+      ].join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }
+
+  runs = runs.slice().sort((a, b) => {
+    const left = String(a.timestamp || '');
+    const right = String(b.timestamp || '');
+    return state.runSort === 'oldest'
+      ? left.localeCompare(right)
+      : right.localeCompare(left);
   });
+
+  return runs;
 }
 
 function renderRunSection(title, subtitle, runs, emptyText) {
@@ -240,7 +259,18 @@ function renderRuns() {
           <h3>Runs</h3>
           <p class="subtle-note">Grouped by betterPrompt and betterPlan. Newest first. Open one to compare input and output side by side.</p>
         </div>
-        <input class="search-input" id="run-search" type="search" placeholder="Search by input, output, or matched skill" value="${escapeHtml(state.runQuery)}" />
+        <div class="runs-toolbar-controls">
+          <select class="filter-select" id="run-type-filter" aria-label="Run type filter">
+            <option value="all" ${state.runTypeFilter === 'all' ? 'selected' : ''}>All runs</option>
+            <option value="prompt" ${state.runTypeFilter === 'prompt' ? 'selected' : ''}>betterPrompt</option>
+            <option value="plan" ${state.runTypeFilter === 'plan' ? 'selected' : ''}>betterPlan</option>
+          </select>
+          <select class="filter-select" id="run-sort" aria-label="Run sort order">
+            <option value="newest" ${state.runSort === 'newest' ? 'selected' : ''}>Newest first</option>
+            <option value="oldest" ${state.runSort === 'oldest' ? 'selected' : ''}>Oldest first</option>
+          </select>
+          <input class="search-input" id="run-search" type="search" placeholder="Search by input, output, or matched skill" value="${escapeHtml(state.runQuery)}" />
+        </div>
       </div>
     </section>
 
@@ -251,6 +281,16 @@ function renderRuns() {
   const search = document.getElementById('run-search');
   search?.addEventListener('input', (event) => {
     state.runQuery = event.target.value;
+    renderRuns();
+  });
+  const typeFilter = document.getElementById('run-type-filter');
+  typeFilter?.addEventListener('change', (event) => {
+    state.runTypeFilter = event.target.value;
+    renderRuns();
+  });
+  const sortSelect = document.getElementById('run-sort');
+  sortSelect?.addEventListener('change', (event) => {
+    state.runSort = event.target.value;
     renderRuns();
   });
 }
