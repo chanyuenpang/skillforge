@@ -18,13 +18,10 @@ function uniq(items = []) {
 
 function summarizeCandidate(candidate) {
   return {
-    id: candidate.id,
     name: candidate.name,
-    kind: candidate.kind,
     skillRole: candidate.skillRole || 'reference',
     skillCategory: candidate.skillCategory || 'general',
     description: candidate.description,
-    requiredTools: candidate.requiredTools || [],
     entrypointHints: candidate.entrypointHints || [],
     stopRuleHints: candidate.stopRuleHints || [],
     reportHints: candidate.reportHints || [],
@@ -37,7 +34,7 @@ function summarizeCandidate(candidate) {
 function buildCompilationPrompt(input, routingResult) {
   return BETTERPROMPT_COMPILATION_SKILL.buildUserPrompt(
     input,
-    routingResult.selected.map(summarizeCandidate),
+    routingResult.selected.slice(0, 3).map(summarizeCandidate),
   );
 }
 
@@ -219,7 +216,7 @@ export async function buildBetterPromptV1(input) {
     stage: 'betterprompt_compilation',
     systemPrompt: BETTERPROMPT_COMPILATION_SKILL.systemPrompt,
     userPrompt: buildCompilationPrompt(normalizedInput, routingResult),
-    maxTokens: 2600,
+    maxTokens: 1800,
   });
 
   const compiled = normalizeCompiledOutput(llmResult.data);
