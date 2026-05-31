@@ -29,6 +29,26 @@ function tokenize(text = '') {
   );
 }
 
+function buildSkillSearchText(skill = {}) {
+  return [
+    skill.name,
+    skill.description,
+    ...(skill.applicableScenes || []),
+    ...(skill.triggerHints || []),
+    ...(skill.requiredTools || []),
+    ...(skill.toolSignals || []),
+    ...(skill.entrypointHints || []),
+    ...(skill.toolFamilies || []),
+    ...(skill.reportHints || []),
+    ...(skill.constraintHints || []),
+    skill.workflowSkeletonSummary,
+    ...(skill.tags || []),
+  ]
+    .filter(hasText)
+    .join('\n')
+    .toLowerCase();
+}
+
 const TAG_TYPE_WEIGHT = Object.freeze({
   project: 3,
   workflow: 2.5,
@@ -127,6 +147,11 @@ function scoreDirectSkillOverlap(skill, taskRecord, context = {}) {
     ['triggerHints', skill.triggerHints || []],
     ['requiredTools', skill.requiredTools || []],
     ['toolSignals', skill.toolSignals || []],
+    ['entrypointHints', skill.entrypointHints || []],
+    ['toolFamilies', skill.toolFamilies || []],
+    ['reportHints', skill.reportHints || []],
+    ['constraintHints', skill.constraintHints || []],
+    ['workflowSkeletonSummary', [skill.workflowSkeletonSummary || '']],
     ['tags', skill.tags || []],
     ['skillRole', [skill.skillRole || '']],
     ['skillCategory', [skill.skillCategory || '']],
@@ -150,16 +175,36 @@ function scoreDirectSkillOverlap(skill, taskRecord, context = {}) {
   return { score, matchedFields };
 }
 
-function scoreRoleBoost(skill, taskRecord = {}) {
+function scoreRoleBoost(skill, taskRecord = {}, directScore = 0, tagScore = 0) {
   const taskTypes = toArray(taskRecord.taskTypes).map(normalizeString);
   const workflowStages = toArray(taskRecord.workflowStages).map(normalizeString);
   const role = normalizeString(skill.skillRole);
   const category = normalizeString(skill.skillCategory);
   const boosts = [];
   let score = 0;
+  const searchText = buildSkillSearchText(skill);
 
   const isCodeExecutionTask = taskTypes.some((item) => /code|implementation|develop|modify|execution/.test(item))
     || workflowStages.some((item) => /implementation|development|execution/.test(item));
+  const isBrowserValidationTask = taskTypes.some((item) => /validation|testing|verification|flow_testing/.test(item))
+    && (
+      toArray(taskRecord.artifactTargets).some((item) => /browser|page|dom|ui/i.test(String(item)))
+      || toArray(taskRecord.toolHints).some((item) => /browser|playwright|browseros/i.test(String(item)))
+    );
+  const anchorEvidence = directScore + tagScore;
+
+  let affinityScore = 0;
+  if (isCodeExecutionTask) {
+    if (/(coding|code|implementation|implement|developer|feature|bug|refactor|modify|edit)/.test(searchText)) affinityScore += 3;
+    if (/(compile|compiler|build|python)/.test(searchText)) affinityScore += 1;
+  }
+  if (isBrowserValidationTask && /(browser|browseros|playwright|page|dom|e2e|validation|verify|evidence)/.test(searchText)) {
+    affinityScore += 3;
+  }
+
+  if (anchorEvidence <= 0 && affinityScore <= 0) {
+    return { boosts, score };
+  }
 
   if (isCodeExecutionTask && role === 'primary') {
     boosts.push({ kind: 'skillRole', value: 'primary', weight: 3 });
@@ -172,6 +217,22 @@ function scoreRoleBoost(skill, taskRecord = {}) {
   if (isCodeExecutionTask && role === 'tooling') {
     boosts.push({ kind: 'skillRole', value: 'tooling', weight: 1 });
     score += 1;
+  }
+  if (isCodeExecutionTask && affinityScore > 0) {
+    boosts.push({ kind: 'taskAffinity', value: 'code_execution', weight: affinityScore });
+    score += affinityScore;
+  }
+  if (isBrowserValidationTask && role === 'primary') {
+    boosts.push({ kind: 'skillRole', value: 'primary', weight: 2 });
+    score += 2;
+  }
+  if (isBrowserValidationTask && role === 'verification') {
+    boosts.push({ kind: 'skillRole', value: 'verification', weight: 1.5 });
+    score += 1.5;
+  }
+  if (isBrowserValidationTask && affinityScore > 0) {
+    boosts.push({ kind: 'taskAffinity', value: 'browser_validation', weight: affinityScore });
+    score += affinityScore;
   }
 
   return { boosts, score };
@@ -282,7 +343,7 @@ export function recallSkillBundle({
 
     const direct = scoreDirectSkillOverlap(entry, taskRecord, context);
     const tagHit = scoreTagHits(entry.id, anchors, tagMaps, linksByTagId);
-    const roleBoost = scoreRoleBoost(entry, taskRecord);
+    const roleBoost = scoreRoleBoost(entry, taskRecord, direct.score, tagHit.score);
     const scopeBoosts = [];
     let scopeScore = 0;
 

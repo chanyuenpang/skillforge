@@ -182,7 +182,30 @@ test('recallSkillBundle prefers primary execution skills for code modification t
     },
   });
 
-  for (const entry of [primaryEntry, toolingEntry]) {
+  const genericPrimaryEntry = makeRegistryEntry({
+    registryId: 'local-skills:feishu-master',
+    name: 'feishu-master',
+    skillKind: 'subagent',
+    description: 'General execution workflow for Feishu documents, drive, and sharing tasks.',
+    sourceRef: { path: '/skills/feishu-master/SKILL.md' },
+    routingProfile: {
+      skillRole: 'primary',
+      skillCategory: 'execution',
+      applicableScenes: ['feishu docs', 'sharing files'],
+      triggerHints: ['feishu', 'document sharing', 'wiki permissions'],
+      requiredTools: ['feishu_doc', 'feishu_drive'],
+      toolSignals: ['feishu'],
+      entrypointHints: ['feishu_doc'],
+      toolFamilies: ['feishu'],
+      reportHints: ['share-summary'],
+      stopRuleHints: ['stop-on-permission-error'],
+      constraintHints: ['workspace-cleanup'],
+      workflowSkeletonSummary: 'Use Feishu APIs to operate docs and sharing flows.',
+      tags: ['feishu', 'docs', 'sharing'],
+    },
+  });
+
+  for (const entry of [primaryEntry, toolingEntry, genericPrimaryEntry]) {
     const record = normalizeSkillRecord(entry, { scanId: 'scan_test', sourceId: 'local-skills' });
     upsertSkillRecord(db, record);
     for (const tagRecord of normalizeTagRecords(entry)) {
@@ -203,9 +226,9 @@ test('recallSkillBundle prefers primary execution skills for code modification t
     builtAt: '2026-05-30T00:00:00.000Z',
     sourceId: 'local-skills',
     scanId: 'scan_test',
-    skillCount: 2,
-    tagCount: 8,
-    relationCount: 6,
+    skillCount: 3,
+    tagCount: 12,
+    relationCount: 9,
     buildMode: 'full-rebuild',
   });
 
@@ -228,10 +251,12 @@ test('recallSkillBundle prefers primary execution skills for code modification t
     maxCandidates: 5,
   });
 
-  assert.equal(result.shortlisted.length, 2);
+  assert.equal(result.shortlisted.length, 3);
   assert.equal(result.shortlisted[0].id, 'local-skills:coding-agent-workflow');
   assert.equal(result.shortlisted[0].skillRole, 'primary');
   assert.equal(result.shortlisted[1].skillRole, 'tooling');
+  assert.equal(result.shortlisted[2].id, 'local-skills:feishu-master');
+  assert.ok(result.shortlisted[0].heuristicScore > result.shortlisted[2].heuristicScore);
 });
 
 test('recallSkillBundle can recover browser skills from natural-language summary without explicit tools', () => {
