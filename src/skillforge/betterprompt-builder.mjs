@@ -31,7 +31,7 @@ function summarizeCandidate(candidate) {
   };
 }
 
-function buildCompilationPrompt(input, routingResult) {
+export function buildCompilationPrompt(input, routingResult) {
   return BETTERPROMPT_COMPILATION_SKILL.buildUserPrompt(
     input,
     routingResult.selected.slice(0, 3).map(summarizeCandidate),
