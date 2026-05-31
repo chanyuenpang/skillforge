@@ -38,7 +38,6 @@ function buildCompilationPrompt(input, routingResult) {
   return BETTERPROMPT_COMPILATION_SKILL.buildUserPrompt(
     input,
     routingResult.selected.map(summarizeCandidate),
-    routingResult.rejected || [],
   );
 }
 

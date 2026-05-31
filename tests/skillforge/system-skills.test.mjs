@@ -38,4 +38,6 @@ test('betterprompt compilation skill prefers concise execution briefs over tutor
   assert.match(prompt, /Do not name or explain the workflow in the main body/i);
   assert.match(prompt, /Prefer compact imperative language/i);
   assert.match(prompt, /Only make steps explicit when they are necessary for execution accuracy/i);
+  assert.match(prompt, /Selected routed skills:/i);
+  assert.doesNotMatch(prompt, /Rejected skills:/i);
 });

@@ -166,7 +166,7 @@ export const BETTERPROMPT_COMPILATION_SKILL = Object.freeze({
   },
   systemPrompt:
     'You are a prompt-compilation skill. Use the routed skills as programs for the model, synthesize a final executor-facing natural-language prompt, keep the schema lightweight, and return JSON only.',
-  buildUserPrompt(input, routedSkills = [], rejectedSkills = []) {
+  buildUserPrompt(input, routedSkills = []) {
     return `You are a prompt-compilation skill for a general downstream executor.
 
 Your job is to digest the current task together with the routed skills, then produce guidance that a capable general executor agent can directly follow.
@@ -200,10 +200,7 @@ ${JSON.stringify({
 }, null, 2)}
 
 Selected routed skills:
-${JSON.stringify(routedSkills, null, 2)}
-
-Rejected skills:
-${JSON.stringify(rejectedSkills, null, 2)}`;
+${JSON.stringify(routedSkills, null, 2)}`;
   },
 });
 
