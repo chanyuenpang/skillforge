@@ -20,12 +20,23 @@ function toArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+const SHORT_TOKEN_ALLOWLIST = new Set(['id', 'py', 'ui']);
+const STOP_TOKENS = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'check', 'for', 'from', 'how',
+  'in', 'into', 'is', 'it', 'of', 'on', 'or', 'report', 'return', 'that', 'the',
+  'this', 'to', 'use', 'using', 'what', 'when', 'who', 'why', 'with', 'will',
+]);
+
 function tokenize(text = '') {
   return uniq(
     String(text)
       .toLowerCase()
       .split(/[\s,;.!?，。；、/\\()[\]{}"'`:_-]+/)
-      .filter((token) => token.length >= 2),
+      .filter((token) => {
+        if (!token) return false;
+        if (STOP_TOKENS.has(token)) return false;
+        return token.length >= 3 || SHORT_TOKEN_ALLOWLIST.has(token);
+      }),
   );
 }
 
@@ -139,6 +150,22 @@ function scoreDirectSkillOverlap(skill, taskRecord, context = {}) {
   const anchors = collectTaskAnchors(taskRecord, context).map(normalizeString).filter(Boolean);
   const matchedFields = [];
   let score = 0;
+  const fieldWeight = {
+    name: 1.5,
+    description: 0.75,
+    applicableScenes: 1,
+    triggerHints: 1.25,
+    requiredTools: 1.25,
+    toolSignals: 1.25,
+    entrypointHints: 1,
+    toolFamilies: 1,
+    reportHints: 0.25,
+    constraintHints: 0.5,
+    workflowSkeletonSummary: 0.5,
+    tags: 1.25,
+    skillRole: 0.5,
+    skillCategory: 0.5,
+  };
 
   const fieldMatches = [
     ['name', [skill.name || '']],
@@ -161,7 +188,11 @@ function scoreDirectSkillOverlap(skill, taskRecord, context = {}) {
     const exactMatches = values.filter((value) => anchors.includes(normalizeString(value)));
     const tokenMatches = [];
     for (const value of values) {
-      const tokens = tokenize(value);
+      const tokens = field === 'reportHints'
+        || field === 'constraintHints'
+        || field === 'workflowSkeletonSummary'
+        ? []
+        : tokenize(value);
       for (const token of tokens) {
         if (anchors.includes(token)) tokenMatches.push(token);
       }
@@ -169,7 +200,7 @@ function scoreDirectSkillOverlap(skill, taskRecord, context = {}) {
     const matches = uniq([...exactMatches, ...tokenMatches]);
     if (matches.length === 0) continue;
     matchedFields.push({ field, values: matches });
-    score += field === 'name' || field === 'description' ? matches.length * 0.5 : matches.length;
+    score += matches.length * (fieldWeight[field] || 1);
   }
 
   return { score, matchedFields };

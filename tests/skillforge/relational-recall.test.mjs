@@ -251,12 +251,11 @@ test('recallSkillBundle prefers primary execution skills for code modification t
     maxCandidates: 5,
   });
 
-  assert.equal(result.shortlisted.length, 3);
+  assert.equal(result.shortlisted.length, 2);
   assert.equal(result.shortlisted[0].id, 'local-skills:coding-agent-workflow');
   assert.equal(result.shortlisted[0].skillRole, 'primary');
   assert.equal(result.shortlisted[1].skillRole, 'tooling');
-  assert.equal(result.shortlisted[2].id, 'local-skills:feishu-master');
-  assert.ok(result.shortlisted[0].heuristicScore > result.shortlisted[2].heuristicScore);
+  assert.ok(!result.shortlisted.some((item) => item.id === 'local-skills:feishu-master'));
 });
 
 test('recallSkillBundle can recover browser skills from natural-language summary without explicit tools', () => {
