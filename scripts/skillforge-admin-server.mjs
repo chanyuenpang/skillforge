@@ -15,6 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = path.resolve(__dirname, '../web/admin');
 const PORT = Number(process.env.SKILLFORGE_ADMIN_PORT || 4318);
 const HOST = process.env.SKILLFORGE_ADMIN_HOST || '0.0.0.0';
+const STARTED_AT = new Date().toISOString();
 
 const MIME_TYPES = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -82,6 +83,17 @@ function handleApi(req, res, pathname) {
     return;
   }
 
+  if (pathname === '/api/health') {
+    sendJson(res, 200, {
+      ok: true,
+      host: HOST,
+      port: PORT,
+      startedAt: STARTED_AT,
+      now: new Date().toISOString(),
+    });
+    return;
+  }
+
   if (pathname === '/api/skills') {
     sendJson(res, 200, listAdminSkills());
     return;
@@ -141,4 +153,14 @@ server.listen(PORT, HOST, () => {
   for (const url of urls) {
     console.log(`- ${url}`);
   }
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[skillforge-admin] uncaughtException', error);
+  process.exitCode = 1;
+});
+
+process.on('unhandledRejection', (error) => {
+  console.error('[skillforge-admin] unhandledRejection', error);
+  process.exitCode = 1;
 });
