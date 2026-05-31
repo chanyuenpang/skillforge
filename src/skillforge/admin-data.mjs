@@ -428,8 +428,10 @@ function hasMeaningfulText(value) {
 }
 
 function detectRunKind(run) {
+  if (run?.runId?.startsWith('bp-')) return 'Plan Review';
+  if (run?.runId?.startsWith('bpr-')) return 'Prompt Routing';
   if (run?.plan?.reviewText || run?.runId?.startsWith('pl')) return 'Plan Review';
-  if (run?.compilation || run?.runId?.startsWith('bp') || run?.runId?.startsWith('bpr')) return 'Prompt Routing';
+  if (run?.compilation) return 'Prompt Routing';
   return 'Run';
 }
 

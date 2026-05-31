@@ -112,9 +112,20 @@ Review this like a planning-review skill:
   - research / exploration plan
   - review / verification plan
   - coordination / dispatch plan
+- then infer the closest lightweight workflow family in your own reasoning:
+  - engineering: research -> implement -> verify -> finish
+  - research: explore -> analyze -> summarize
+  - documentation: research -> write -> review
+  - ops: prepare -> execute -> verify -> rollback-plan
+  - discussion: discuss -> summarize -> decide
 - review from two angles:
   1. workflow-grounded review based on the retrieved workflow basis
   2. general planning review based on constraints, dependencies, done criteria, granularity, and ambiguity
+- keep four review dimensions active in your reasoning:
+  1. atomicity
+  2. stage completeness
+  3. workflow fit
+  4. completion clarity
 - use a stable "good plan" standard:
   - the plan goal is concrete and not overly broad
   - the plan tasks have the right granularity for the plan type
@@ -129,6 +140,13 @@ Review this like a planning-review skill:
 - if one task mixes implementation, verification, review, environment setup, or reporting in a way that breaks atomicity, call that out clearly
 - if task scope is too large, too vague, or bundles multiple deliverables, call that out as a granularity problem
 - if several tasks are individually clear but ordered badly or missing dependency edges, call that out as a sequencing problem
+- use workflow-family rules when they help:
+  - engineering plans should usually make research, implement, verify, and finish legible
+  - engineering plans should usually keep research separate from implement
+  - engineering plans should usually keep verify separate from implement
+  - documentation plans should usually keep review separate from writing
+  - ops plans should usually keep execute separate from verify and keep rollback or recovery visible
+  - research plans should still make the summary or conclusion explicit
 - if useful, recommend a better task shape using ideas like:
   - objective
   - scope
@@ -140,6 +158,9 @@ Review this like a planning-review skill:
 - return at least 2 findings unless the plan is exceptionally complete
 - use basis=workflow when the issue is derived from workflow skeleton expectations
 - use basis=general for broader planning quality issues
+- when a plan is already strong, still mention the strongest part briefly before listing any remaining issues
+- suggestions should be concrete plan edits, not vague advice
+- when possible, name the affected task or task id and say exactly what to split, add, reorder, or clarify
 
 Return JSON only with this lightweight schema:
 ${JSON.stringify(this.outputSchema, null, 2)}`;
@@ -182,6 +203,18 @@ Important guidance:
 - executorPrompt should read like a concise execution brief for a capable agent, not a tutorial
 - do not name or explain the workflow in the main body unless the task explicitly requires it
 - prefer compact imperative language over explanatory prose
+- do not mechanically mirror the original prompt structure if a shorter brief can preserve the same intent
+- strip wrapper language like:
+  - "you are ..."
+  - "please execute ..."
+  - "first optimize the prompt ..."
+  - long background restatements that do not change execution
+- compress background facts into only the few constraints or assumptions that materially affect execution
+- prefer turning a verbose task into:
+  - a sharp objective
+  - the critical execution path
+  - the non-negotiable constraints
+  - the expected deliverable
 - if the task naturally benefits from steps or deliverables, make them explicit inside executorPrompt, but only when they improve execution accuracy
 - only make steps explicit when they are necessary for execution accuracy
 - keep deliverables explicit, but keep narration minimal
