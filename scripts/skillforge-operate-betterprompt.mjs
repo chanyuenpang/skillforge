@@ -121,6 +121,8 @@ async function main() {
           reportHints: result.guidance.reportHints || [],
           executorPromptPreview: result.executorPrompt.slice(0, 400),
         },
+        timings: result.diagnostics?.timings || null,
+        model: result.diagnostics?.model || null,
       },
       diagnosis: {
         failureStage: result.qc.pass ? null : 'compilation',

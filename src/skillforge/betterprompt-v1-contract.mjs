@@ -103,6 +103,17 @@ export const BetterPromptV1Output = z.object({
     planId: z.string().nullable().optional(),
     taskId: z.string().nullable().optional(),
   }),
+  diagnostics: z.object({
+    timings: z.object({
+      routingMs: z.number().nonnegative(),
+      compilationMs: z.number().nonnegative(),
+      totalMs: z.number().nonnegative(),
+    }),
+    model: z.object({
+      routing: z.string().nullable().optional(),
+      compilation: z.string().nullable().optional(),
+    }).optional(),
+  }).optional(),
   qc: z.object({
     pass: z.boolean(),
     score: z.number().min(0).max(100),

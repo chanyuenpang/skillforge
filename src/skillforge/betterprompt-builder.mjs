@@ -181,6 +181,7 @@ function createRoutingFailure(routingResult, message = 'betterPrompt routing fai
 }
 
 export async function buildBetterPromptV1(input) {
+  const startedAt = Date.now();
   const validated = validateBetterPromptV1Input(input);
   if (!validated.success) {
     const message = validated.error.issues.map((issue) => issue.message).join('; ') || 'invalid input';
@@ -191,6 +192,7 @@ export async function buildBetterPromptV1(input) {
   const projectToolContext = uniq(normalizedInput.projectToolContext || []);
   const runtimeToolContext = uniq(normalizedInput.runtimeToolContext || []);
 
+  const routingStartedAt = Date.now();
   const routingResult = normalizedInput.candidateSkills && normalizedInput.candidateSkills.length > 0
     ? {
         selected: normalizedInput.candidateSkills,
@@ -207,17 +209,20 @@ export async function buildBetterPromptV1(input) {
           tags: [],
         },
       });
+  const routingMs = Date.now() - routingStartedAt;
 
   if (!Array.isArray(routingResult.selected) || routingResult.selected.length === 0) {
     throw createRoutingFailure(routingResult);
   }
 
+  const compilationStartedAt = Date.now();
   const llmResult = await callJsonModel({
     stage: 'betterprompt_compilation',
     systemPrompt: BETTERPROMPT_COMPILATION_SKILL.systemPrompt,
     userPrompt: buildCompilationPrompt(normalizedInput, routingResult),
     maxTokens: 1800,
   });
+  const compilationMs = Date.now() - compilationStartedAt;
 
   const compiled = normalizeCompiledOutput(llmResult.data);
   const derivedObjective = deriveObjective(compiled, normalizedInput);
@@ -254,6 +259,17 @@ export async function buildBetterPromptV1(input) {
       skillRefs: deriveSelectedSkillRefs(routingResult),
       planId: normalizedInput.planContext?.planId || null,
       taskId: normalizedInput.taskContext?.taskId || null,
+    },
+    diagnostics: {
+      timings: {
+        routingMs,
+        compilationMs,
+        totalMs: Date.now() - startedAt,
+      },
+      model: {
+        routing: routingResult.metadata?.model || null,
+        compilation: llmResult.meta?.model || null,
+      },
     },
   };
   output.qc = runQc(output);

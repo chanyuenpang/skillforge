@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeCompiledOutput, renderReferencedSkills } from '../../src/skillforge/betterprompt-builder.mjs';
+import { validateBetterPromptV1Output } from '../../src/skillforge/betterprompt-v1-contract.mjs';
 
 test('normalizeCompiledOutput accepts lightweight compilation fields', () => {
   const normalized = normalizeCompiledOutput({
@@ -49,4 +50,60 @@ test('renderReferencedSkills includes only skill refs', () => {
   assert.doesNotMatch(text, /Workflow hint:/);
   assert.doesNotMatch(text, /Entrypoints:/);
   assert.doesNotMatch(text, /Report hints:/);
+});
+
+test('betterprompt output schema accepts lightweight diagnostics timings', () => {
+  const result = validateBetterPromptV1Output({
+    version: 'betterprompt.v2',
+    executorPrompt: 'Modify compiler/compile.py to add duplicate id detection and report the changed files.',
+    input: { rawPrompt: 'Modify compile.py duplicate id detection' },
+    routing: {
+      selected: [
+        {
+          id: 'local-skills:coding-agent-workflow',
+          name: 'coding-agent-workflow',
+          kind: 'skill',
+          description: 'Code execution workflow',
+          sourceRef: { path: 'skills/coding-agent-workflow/SKILL.md' },
+        },
+      ],
+      rejected: [],
+      rationale: ['Code modification task'],
+      toolGate: { projectToolContext: [], runtimeToolContext: [] },
+    },
+    guidance: {
+      objective: 'Add duplicate id detection',
+      stepOutline: ['Inspect compile.py', 'Add validation', 'Report changes'],
+      hardConstraints: ['Keep changes minimal'],
+      stopRules: [],
+      nonGoals: [],
+      reportHints: ['Modified files', 'Validation command'],
+      artifacts: [],
+    },
+    trace: {
+      sourcePromptRef: 'spawn-input',
+      skillRefs: ['skills/coding-agent-workflow/SKILL.md'],
+      planId: null,
+      taskId: null,
+    },
+    diagnostics: {
+      timings: {
+        routingMs: 120,
+        compilationMs: 640,
+        totalMs: 760,
+      },
+      model: {
+        routing: 'glm-5-turbo',
+        compilation: 'glm-5-turbo',
+      },
+    },
+    qc: {
+      pass: true,
+      score: 100,
+      tags: ['routing-aware', 'executor-ready'],
+      issues: [],
+    },
+  });
+
+  assert.equal(result.success, true);
 });
