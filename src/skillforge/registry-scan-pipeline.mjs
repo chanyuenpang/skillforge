@@ -50,6 +50,10 @@ async function walkSkillFiles(sourceDir) {
   return skillFiles;
 }
 
+export async function listSkillFiles(sourceDir) {
+  return walkSkillFiles(sourceDir);
+}
+
 function extractFrontmatter(text = '') {
   const normalized = String(text).replace(/^\uFEFF/u, '').replace(/\r\n?/g, '\n');
   if (!normalized.startsWith('---\n')) return {};
@@ -280,6 +284,44 @@ async function extractSkillIr({ sourceId, filePath }) {
   };
 }
 
+export async function scanSkillFile({ sourceId, filePath, scanId = null }) {
+  try {
+    const result = await extractSkillIr({ sourceId, filePath });
+    if (result.status === 'ok' && result.fields) {
+      const entryWithScan = createRegistryEntry(result.fields, {
+        sourceId,
+        scanId,
+      });
+      return {
+        ...result,
+        registryEntry: entryWithScan,
+      };
+    }
+    return result;
+  } catch (error) {
+    const relativePath = path.relative(process.cwd(), filePath);
+    const skillDir = path.dirname(filePath);
+    const relativeSkillDir = path.relative(path.resolve('skills'), skillDir).replace(/\\/g, '/');
+    const fallbackSkillId = `${sourceId}:${relativeSkillDir || path.basename(skillDir)}`;
+    return {
+      sourceId,
+      skillId: fallbackSkillId,
+      entryPath: relativePath,
+      status: 'error',
+      fields: null,
+      registryEntry: null,
+      errors: [
+        {
+          code: error.code || 'SKILL_IR_EXTRACTION_FAILED',
+          message: error.message,
+          stage: error?.meta?.stage || 'skill_ir_extraction',
+        },
+      ],
+      extractionMeta: error?.meta || null,
+    };
+  }
+}
+
 function buildSummary(records) {
   return {
     total: records.length,
@@ -296,44 +338,15 @@ export async function runRegistryScanPipeline({ sourceDir, sourceId }) {
 
   const scanId = `scan_${randomUUID()}`;
   const startedAt = nowIso();
-  const skillFiles = await walkSkillFiles(sourceDir);
+  const skillFiles = await listSkillFiles(sourceDir);
   const records = [];
 
   for (const filePath of skillFiles) {
-    try {
-      records.push(await extractSkillIr({ sourceId, filePath }));
-    } catch (error) {
-      const relativePath = path.relative(process.cwd(), filePath);
-      const skillDir = path.dirname(filePath);
-      const relativeSkillDir = path.relative(path.resolve('skills'), skillDir).replace(/\\/g, '/');
-      const fallbackSkillId = `${sourceId}:${relativeSkillDir || path.basename(skillDir)}`;
-      records.push({
-        sourceId,
-        skillId: fallbackSkillId,
-        entryPath: relativePath,
-        status: 'error',
-        fields: null,
-        registryEntry: null,
-        errors: [
-          {
-            code: error.code || 'SKILL_IR_EXTRACTION_FAILED',
-            message: error.message,
-            stage: error?.meta?.stage || 'skill_ir_extraction',
-          },
-        ],
-        extractionMeta: error?.meta || null,
-      });
+    const record = await scanSkillFile({ sourceId, filePath, scanId });
+    if (record.status === 'ok' && record.registryEntry) {
+      saveRegistryEntry(record.registryEntry);
     }
-  }
-
-  for (const record of records) {
-    if (record.status !== 'ok' || !record.registryEntry) continue;
-    const entryWithScan = createRegistryEntry(record.fields, {
-      sourceId,
-      scanId,
-    });
-    saveRegistryEntry(entryWithScan);
-    record.registryEntry = entryWithScan;
+    records.push(record);
   }
 
   const result = {

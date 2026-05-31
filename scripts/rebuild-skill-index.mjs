@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 
 import path from 'node:path';
-import { runRegistryScanPipeline } from '../src/skillforge/registry-scan-pipeline.mjs';
+import { promises as fs } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import {
+  listSkillFiles,
+  scanSkillFile,
+} from '../src/skillforge/registry-scan-pipeline.mjs';
+import { save as saveRegistryEntry } from '../src/skillforge/registry-store.mjs';
 import {
   RELATIONAL_INDEX_PATH,
   RELATIONAL_INDEX_SCHEMA_VERSION,
@@ -48,35 +54,93 @@ function parseArgs(argv) {
   return args;
 }
 
+function buildSummary(records) {
+  return {
+    total: records.length,
+    ok: records.filter((record) => record.status === 'ok').length,
+    error: records.filter((record) => record.status === 'error').length,
+    skipped: 0,
+  };
+}
+
+async function writeScanArtifact(artifactPath, payload) {
+  await fs.mkdir(path.dirname(artifactPath), { recursive: true });
+  await fs.writeFile(artifactPath, JSON.stringify(payload, null, 2), 'utf8');
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const scan = await runRegistryScanPipeline({
-    sourceDir: args.sourceDir,
-    sourceId: args.sourceId,
-  });
+  const scanId = `scan_${randomUUID()}`;
+  const startedAt = new Date().toISOString();
+  const artifactPath = path.resolve('.skillforge/registry/scans', `${scanId}.json`);
+  const skillFiles = await listSkillFiles(args.sourceDir);
 
   const { db, path: dbPath } = openRelationalIndexDb(args.dbPath);
   ensureRelationalIndexSchema(db);
   clearRelationalIndex(db);
+  const records = [];
+  writeIndexMeta(db, {
+    indexVersion: RELATIONAL_INDEX_VERSION,
+    schemaVersion: RELATIONAL_INDEX_SCHEMA_VERSION,
+    builtAt: startedAt,
+    sourceId: args.sourceId,
+    scanId,
+    skillCount: 0,
+    tagCount: 0,
+    relationCount: 0,
+    buildMode: 'rebuilding',
+  });
 
-  for (const record of scan.records) {
-    if (record.status !== 'ok' || !record.registryEntry) continue;
-    const skillRecord = normalizeSkillRecord(record.registryEntry, {
-      scanId: scan.scanId,
-      sourceId: scan.sourceId,
+  for (const filePath of skillFiles) {
+    const record = await scanSkillFile({
+      sourceId: args.sourceId,
+      filePath,
+      scanId,
     });
-    upsertSkillRecord(db, skillRecord);
+    records.push(record);
 
-    const tagRecords = normalizeTagRecords(record.registryEntry);
-    for (const tagRecord of tagRecords) {
-      upsertTagRecord(db, tagRecord);
-      linkSkillTag(db, {
-        skillId: skillRecord.id,
-        tagId: tagRecord.id,
-        matchKind: tagRecord.tag_type,
-        source: 'registry-scan',
+    if (record.status === 'ok' && record.registryEntry) {
+      saveRegistryEntry(record.registryEntry);
+      const skillRecord = normalizeSkillRecord(record.registryEntry, {
+        scanId,
+        sourceId: args.sourceId,
       });
+      upsertSkillRecord(db, skillRecord);
+
+      const tagRecords = normalizeTagRecords(record.registryEntry);
+      for (const tagRecord of tagRecords) {
+        upsertTagRecord(db, tagRecord);
+        linkSkillTag(db, {
+          skillId: skillRecord.id,
+          tagId: tagRecord.id,
+          matchKind: tagRecord.tag_type,
+          source: 'registry-scan',
+        });
+      }
     }
+
+    const counts = countIndexRows(db);
+    writeIndexMeta(db, {
+      indexVersion: RELATIONAL_INDEX_VERSION,
+      schemaVersion: RELATIONAL_INDEX_SCHEMA_VERSION,
+      builtAt: startedAt,
+      sourceId: args.sourceId,
+      scanId,
+      skillCount: counts.skills,
+      tagCount: counts.tags,
+      relationCount: counts.skillTags + counts.entityRelations,
+      buildMode: 'rebuilding',
+    });
+
+    await writeScanArtifact(artifactPath, {
+      scanId,
+      sourceId: args.sourceId,
+      sourceDir: path.resolve(args.sourceDir),
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      summary: buildSummary(records),
+      records,
+    });
   }
 
   const counts = countIndexRows(db);
@@ -84,13 +148,25 @@ async function main() {
     indexVersion: RELATIONAL_INDEX_VERSION,
     schemaVersion: RELATIONAL_INDEX_SCHEMA_VERSION,
     builtAt: new Date().toISOString(),
-    sourceId: scan.sourceId,
-    scanId: scan.scanId,
+    sourceId: args.sourceId,
+    scanId,
     skillCount: counts.skills,
     tagCount: counts.tags,
     relationCount: counts.skillTags + counts.entityRelations,
     buildMode: args.mode,
   });
+
+  const scan = {
+    scanId,
+    sourceId: args.sourceId,
+    sourceDir: path.resolve(args.sourceDir),
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    summary: buildSummary(records),
+    records,
+    artifactPath,
+  };
+  await writeScanArtifact(artifactPath, scan);
 
   if (scan.summary.error > 0) {
     const error = new Error(`registry scan completed with ${scan.summary.error} skill extraction error(s)`);
