@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { existsSync, createReadStream } from 'node:fs';
+import { networkInterfaces } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -13,6 +14,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = path.resolve(__dirname, '../web/admin');
 const PORT = Number(process.env.SKILLFORGE_ADMIN_PORT || 4318);
+const HOST = process.env.SKILLFORGE_ADMIN_HOST || '0.0.0.0';
 
 const MIME_TYPES = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -40,6 +42,19 @@ function safeDecode(value = '') {
   } catch {
     return value;
   }
+}
+
+function listLanAddresses() {
+  const interfaces = networkInterfaces();
+  const addresses = [];
+  for (const entries of Object.values(interfaces)) {
+    for (const entry of entries || []) {
+      if (!entry || entry.internal) continue;
+      if (entry.family !== 'IPv4') continue;
+      addresses.push(entry.address);
+    }
+  }
+  return [...new Set(addresses)];
 }
 
 function serveStatic(res, requestPath) {
@@ -117,6 +132,13 @@ const server = createServer((req, res) => {
   sendNotFound(res);
 });
 
-server.listen(PORT, () => {
-  console.log(`SkillForge admin ready at http://127.0.0.1:${PORT}`);
+server.listen(PORT, HOST, () => {
+  const urls = [`http://127.0.0.1:${PORT}`];
+  for (const address of listLanAddresses()) {
+    urls.push(`http://${address}:${PORT}`);
+  }
+  console.log(`SkillForge admin ready on ${HOST}:${PORT}`);
+  for (const url of urls) {
+    console.log(`- ${url}`);
+  }
 });
