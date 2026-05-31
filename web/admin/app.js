@@ -16,6 +16,9 @@ const pageViews = {
 const drawer = document.getElementById('detail-drawer');
 const drawerContent = document.getElementById('drawer-content');
 
+let monacoPromise = null;
+let activeEditors = [];
+
 function escapeHtml(value = '') {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -87,7 +90,7 @@ function renderOverview() {
         <div class="section-head">
           <div>
             <p class="eyebrow">Tag pulse</p>
-            <h3>当前最常见的标签关联</h3>
+            <h3>Most active tags</h3>
           </div>
           <p>${escapeHtml(overview.sourceLabel)}</p>
         </div>
@@ -100,9 +103,9 @@ function renderOverview() {
         <div class="section-head">
           <div>
             <p class="eyebrow">Recent runs</p>
-            <h3>最近的运行状态</h3>
+            <h3>Latest visible runs</h3>
           </div>
-          <p>直接点开看输入、输出与命中技能</p>
+          <p>Open a run to compare input, output, and matched skills.</p>
         </div>
         <div class="list-stack">
           ${overview.recentRuns.length ? overview.recentRuns.map((run) => `
@@ -146,10 +149,10 @@ function renderSkills() {
       <div class="toolbar">
         <div>
           <p class="eyebrow">Skill library</p>
-          <h3>所有技能、描述与标签</h3>
-          <p class="subtle-note">这里优先显示容易判断价值的内容，不把页面塞满技术字段。</p>
+          <h3>Skills, descriptions, and tags</h3>
+          <p class="subtle-note">Show the meaningful shape of each skill first. Keep the page simple.</p>
         </div>
-        <input class="search-input" id="skill-search" type="search" placeholder="按技能名、描述或 tag 搜索" value="${escapeHtml(state.skillQuery)}" />
+        <input class="search-input" id="skill-search" type="search" placeholder="Search by skill name, description, or tag" value="${escapeHtml(state.skillQuery)}" />
       </div>
       <div class="list-stack">
         ${skills.length ? skills.map((skill) => `
@@ -182,7 +185,7 @@ function filteredRuns() {
   return runs.filter((run) => {
     const haystack = [
       run.kind,
-      run.inputText,
+      run.inputDisplayText || run.inputText,
       run.outputText,
       ...(run.matchedSkills || []).map((skill) => skill.name || skill.id),
     ].join(' ').toLowerCase();
@@ -208,6 +211,7 @@ function renderRunSection(title, subtitle, runs, emptyText) {
               ${statusPill(run)}
             </div>
             <div class="row-copy">${escapeHtml(run.inputPreview || 'No request text')}</div>
+            ${run.outputPreview ? `<div class="subtle-note">${escapeHtml(run.outputPreview)}</div>` : ''}
             <div class="run-skills">
               ${(run.matchedSkills || []).length
                 ? run.matchedSkills.map((skill) => `<span class="tag-chip"><strong>${escapeHtml(skill.name || skill.id)}</strong></span>`).join('')
@@ -234,7 +238,7 @@ function renderRuns() {
         <div>
           <p class="eyebrow">Run archive</p>
           <h3>Runs</h3>
-          <p class="subtle-note">Split betterPrompt and betterPlan, newest first.</p>
+          <p class="subtle-note">Grouped by betterPrompt and betterPlan. Newest first. Open one to compare input and output side by side.</p>
         </div>
         <input class="search-input" id="run-search" type="search" placeholder="Search by input, output, or matched skill" value="${escapeHtml(state.runQuery)}" />
       </div>
@@ -251,13 +255,26 @@ function renderRuns() {
   });
 }
 
-function openDrawer(html) {
+function disposeEditors() {
+  for (const editor of activeEditors) {
+    try {
+      editor.dispose();
+    } catch {}
+  }
+  activeEditors = [];
+}
+
+function openDrawer(html, mode = 'default') {
+  disposeEditors();
+  drawer.dataset.mode = mode;
   drawerContent.innerHTML = html;
   drawer.hidden = false;
 }
 
 function closeDrawer() {
   drawer.hidden = true;
+  drawer.dataset.mode = 'default';
+  disposeEditors();
   drawerContent.innerHTML = '';
 }
 
@@ -272,24 +289,110 @@ function renderSkillDrawer(skill) {
       <span class="status-pill pending">${escapeHtml(skill.skillKind || 'skill')}</span>
     </div>
     <div class="drawer-section">
-      <h4>描述</h4>
+      <h4>Description</h4>
       <p>${escapeHtml(skill.description || 'No description')}</p>
     </div>
     <div class="drawer-section">
       <h4>Tags</h4>
       <div class="skill-tags">
-        ${(skill.tags || []).length ? skill.tags.map((tag) => tagChip(tag)).join('') : '<p class="subtle-note">暂时没有 tag。</p>'}
+        ${(skill.tags || []).length ? skill.tags.map((tag) => tagChip(tag)).join('') : '<p class="subtle-note">No tags yet.</p>'}
       </div>
     </div>
     <div class="drawer-section">
-      <h4>简介片段</h4>
+      <h4>Excerpt</h4>
       <p>${escapeHtml(skill.excerpt || 'No excerpt')}</p>
     </div>
     <div class="drawer-section">
-      <h4>来源</h4>
+      <h4>Source</h4>
       <div class="path-pill">${escapeHtml(skill.sourcePath || 'Unknown source')}</div>
     </div>
-  `);
+  `, 'skill');
+}
+
+function parseJsonMaybe(text = '') {
+  const trimmed = String(text || '').trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+function editorLanguageFor(text = '') {
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return 'plaintext';
+  if (parseJsonMaybe(trimmed)) return 'json';
+  if (/^#{1,6}\s|\n[-*]\s|\n\d+\.\s/m.test(trimmed)) return 'markdown';
+  return 'plaintext';
+}
+
+function loadMonaco() {
+  if (window.monaco?.editor) return Promise.resolve(window.monaco);
+  if (monacoPromise) return monacoPromise;
+
+  monacoPromise = new Promise((resolve, reject) => {
+    const existing = document.getElementById('monaco-loader');
+    const boot = () => {
+      const req = window.require;
+      if (!req) {
+        reject(new Error('Monaco loader unavailable'));
+        return;
+      }
+      req.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs' } });
+      req(['vs/editor/editor.main'], () => resolve(window.monaco), reject);
+    };
+
+    if (existing) {
+      if (window.require) boot();
+      else existing.addEventListener('load', boot, { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'monaco-loader';
+    script.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js';
+    script.onload = boot;
+    script.onerror = () => reject(new Error('Failed to load Monaco editor'));
+    document.head.appendChild(script);
+  });
+
+  return monacoPromise;
+}
+
+function renderCodeFallback(target, content) {
+  target.innerHTML = `<pre class="editor-fallback">${escapeHtml(content || 'No content recorded')}</pre>`;
+}
+
+async function mountReadonlyEditor(targetId, content, language, label) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  const text = String(content || '');
+  try {
+    const monaco = await loadMonaco();
+    const editor = monaco.editor.create(target, {
+      value: text,
+      language,
+      theme: 'vs',
+      readOnly: true,
+      minimap: { enabled: false },
+      lineNumbers: 'on',
+      scrollBeyondLastLine: false,
+      fontSize: 14,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      wordWrap: 'on',
+      automaticLayout: true,
+      padding: { top: 12, bottom: 12 },
+      scrollbar: {
+        verticalScrollbarSize: 10,
+        horizontalScrollbarSize: 10,
+      },
+    });
+    activeEditors.push(editor);
+  } catch (error) {
+    console.warn(`Failed to mount ${label} editor`, error);
+    renderCodeFallback(target, text || 'No content recorded');
+  }
 }
 
 function renderRunDrawer(run) {
@@ -301,28 +404,48 @@ function renderRunDrawer(run) {
     <div class="drawer-meta">
       ${statusPill(run)}
       <span class="status-pill pending">${escapeHtml(formatTime(run.timestamp))}</span>
+      ${run.duplicateCount > 1 ? `<span class="status-pill pending">${escapeHtml(`${run.duplicateCount} similar runs`)}</span>` : ''}
     </div>
     <div class="drawer-section">
-      <h4>输入</h4>
-      <p>${escapeHtml(run.inputText || 'No input recorded')}</p>
-    </div>
-    <div class="drawer-section">
-      <h4>命中的技能</h4>
+      <h4>Matched skills</h4>
       <div class="run-skills">
-        ${(run.matchedSkills || []).length ? run.matchedSkills.map((skill) => `<span class="tag-chip"><strong>${escapeHtml(skill.name || skill.id)}</strong></span>`).join('') : '<p class="subtle-note">这次没有留下技能命中结果。</p>'}
+        ${(run.matchedSkills || []).length ? run.matchedSkills.map((skill) => `<span class="tag-chip"><strong>${escapeHtml(skill.name || skill.id)}</strong></span>`).join('') : '<p class="subtle-note">No matched skills recorded.</p>'}
       </div>
     </div>
     <div class="drawer-section">
-      <h4>输出</h4>
-      <pre>${escapeHtml(run.outputText || 'No output recorded')}</pre>
+      <div class="compare-head">
+        <div>
+          <h4>Input / Output</h4>
+          <p class="subtle-note">Left is the incoming request. Right is the final saved output.</p>
+        </div>
+      </div>
+      <div class="editor-compare-grid">
+        <section class="editor-panel">
+          <div class="editor-panel-head">
+            <span>Input</span>
+            <span>${escapeHtml(editorLanguageFor(run.inputDisplayText || run.inputText))}</span>
+          </div>
+          <div id="run-input-editor" class="editor-surface"></div>
+        </section>
+        <section class="editor-panel">
+          <div class="editor-panel-head">
+            <span>Output</span>
+            <span>${escapeHtml(editorLanguageFor(run.outputText))}</span>
+          </div>
+          <div id="run-output-editor" class="editor-surface"></div>
+        </section>
+      </div>
     </div>
     ${run.notes?.length ? `
       <div class="drawer-section">
-        <h4>备注</h4>
+        <h4>Notes</h4>
         <pre>${escapeHtml(run.notes.join('\n'))}</pre>
       </div>
     ` : ''}
-  `);
+  `, 'run');
+
+  mountReadonlyEditor('run-input-editor', run.inputDisplayText || run.inputText || 'No input recorded', editorLanguageFor(run.inputDisplayText || run.inputText), 'input');
+  mountReadonlyEditor('run-output-editor', run.outputText || 'No output recorded', editorLanguageFor(run.outputText), 'output');
 }
 
 async function openSkill(id) {
@@ -393,7 +516,7 @@ async function boot() {
 boot().catch((error) => {
   pageViews.overview.innerHTML = `
     <div class="card empty-state">
-      <h3>后台暂时没有成功启动</h3>
+      <h3>Console failed to load</h3>
       <p>${escapeHtml(error.message || 'Unknown error')}</p>
     </div>
   `;

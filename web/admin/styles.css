@@ -336,6 +336,10 @@ input {
   overflow-y: auto;
 }
 
+.detail-drawer[data-mode='run'] .drawer-panel {
+  width: min(1180px, 96vw);
+}
+
 .drawer-close {
   padding: 10px 14px;
   border-radius: 999px;
@@ -375,6 +379,59 @@ input {
 }
 
 .drawer-section pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "Aptos Mono", Consolas, monospace;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.compare-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+}
+
+.compare-head p {
+  margin: 6px 0 0;
+}
+
+.editor-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.editor-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.editor-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.editor-surface {
+  height: min(62vh, 680px);
+}
+
+.editor-fallback {
+  margin: 0;
+  padding: 14px;
+  min-height: 320px;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: "Aptos Mono", Consolas, monospace;
@@ -435,5 +492,17 @@ input {
   .toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .detail-drawer[data-mode='run'] .drawer-panel {
+    width: 100%;
+  }
+
+  .editor-compare-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-surface {
+    height: 42vh;
   }
 }
