@@ -16,9 +16,11 @@ function uniq(items = []) {
   return [...new Set(values.filter((item) => hasText(item)).map((item) => String(item).trim()))];
 }
 
-function summarizeCandidate(candidate) {
+export function summarizeCandidate(candidate) {
   return {
+    id: candidate.id,
     name: candidate.name,
+    kind: candidate.kind || 'skill',
     skillRole: candidate.skillRole || 'reference',
     skillCategory: candidate.skillCategory || 'general',
     description: candidate.description,

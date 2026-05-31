@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeCompiledOutput, renderReferencedSkills } from '../../src/skillforge/betterprompt-builder.mjs';
+import { normalizeCompiledOutput, renderReferencedSkills, summarizeCandidate } from '../../src/skillforge/betterprompt-builder.mjs';
 import { validateBetterPromptV1Output } from '../../src/skillforge/betterprompt-v1-contract.mjs';
 
 test('normalizeCompiledOutput accepts lightweight compilation fields', () => {
@@ -106,4 +106,17 @@ test('betterprompt output schema accepts lightweight diagnostics timings', () =>
   });
 
   assert.equal(result.success, true);
+});
+
+test('summarizeCandidate preserves id and kind for output validation', () => {
+  const summary = summarizeCandidate({
+    id: 'local-skills:coding-agent-workflow',
+    name: 'coding-agent-workflow',
+    kind: 'subagent',
+    description: 'Code execution workflow',
+    sourceRef: { path: 'skills/coding-agent-workflow/SKILL.md' },
+  });
+
+  assert.equal(summary.id, 'local-skills:coding-agent-workflow');
+  assert.equal(summary.kind, 'subagent');
 });
