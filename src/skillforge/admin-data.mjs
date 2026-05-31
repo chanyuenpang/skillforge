@@ -39,6 +39,37 @@ function clampText(value, maxLength = 220) {
   return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
 }
 
+function parseJsonObject(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+function summarizeTaskPrompt(value = '') {
+  const parsed = parseJsonObject(value);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return String(value || '').trim();
+  }
+
+  const parts = [];
+  if (parsed.title) parts.push(String(parsed.title).trim());
+  if (parsed.summary) parts.push(String(parsed.summary).trim());
+  if (parsed.prompt && parts.length === 0) parts.push(String(parsed.prompt).trim());
+  if (parsed.task && parts.length === 0) parts.push(String(parsed.task).trim());
+  if (Array.isArray(parsed.tasks) && parsed.tasks.length) {
+    const count = parsed.tasks.length;
+    parts.push(`Tasks: ${count}`);
+  }
+
+  const compact = parts.filter(Boolean).join('\n\n').trim();
+  return compact || String(value || '').trim();
+}
+
 function parseFrontmatter(raw = '') {
   if (!raw.startsWith('---')) return { frontmatter: {}, body: raw };
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
@@ -293,6 +324,9 @@ function extractOutput(run) {
   const candidates = [
     run?.compilation?.output?.executorPrompt,
     run?.compilation?.executorPrompt,
+    run?.compilation?.compiledPackage?.executorPrompt,
+    run?.compilation?.compiledPackage?.prompt,
+    run?.plan?.betterPlanReview?.reviewText,
     run?.plan?.reviewText,
     run?.execution?.outputText,
     run?.execution?.report,
@@ -306,6 +340,12 @@ function extractOutput(run) {
 
   if (compiledPackage && typeof compiledPackage === 'object') {
     const fragments = [];
+    if (hasMeaningfulText(compiledPackage.executorPrompt)) {
+      return { text: String(compiledPackage.executorPrompt).trim(), kind: 'natural' };
+    }
+    if (hasMeaningfulText(compiledPackage.executorPromptPreview)) {
+      return { text: String(compiledPackage.executorPromptPreview).trim(), kind: 'legacy_structured' };
+    }
     if (compiledPackage.objective) fragments.push(`Objective: ${compiledPackage.objective}`);
     if (compiledPackage.steps) fragments.push(`Steps: ${compiledPackage.steps}`);
     if (Array.isArray(compiledPackage.reportSections) && compiledPackage.reportSections.length) {
@@ -319,6 +359,10 @@ function extractOutput(run) {
   return { text: '', kind: 'none' };
 }
 
+function hasMeaningfulText(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 function detectRunKind(run) {
   if (run?.plan?.reviewText || run?.runId?.startsWith('pl')) return 'Plan Review';
   if (run?.compilation || run?.runId?.startsWith('bp') || run?.runId?.startsWith('bpr')) return 'Prompt Routing';
@@ -330,6 +374,7 @@ function buildRunSummary(run) {
   const matchedSkills = extractMatchedSkills(run);
   const failureStage = run?.diagnosis?.failureStage || null;
   const inputText = run?.userRequest?.text || '';
+  const inputDisplayText = summarizeTaskPrompt(inputText);
 
   return {
     runId: run.runId,
@@ -337,7 +382,8 @@ function buildRunSummary(run) {
     status: run.status || (failureStage ? 'failed' : 'success'),
     kind: detectRunKind(run),
     inputText,
-    inputPreview: clampText(inputText, 180),
+    inputDisplayText,
+    inputPreview: clampText(inputDisplayText, 180),
     matchedSkills,
     matchedSkillCount: matchedSkills.length,
     outputText: output.text,

@@ -115,10 +115,14 @@ async function main() {
       compilation: {
         sourcePrompt: prompt,
         selectedSkillRefs: result.trace.skillRefs,
+        output: {
+          executorPrompt: result.executorPrompt,
+        },
         compiledPackage: {
           objective: result.guidance.objective || '',
           stepOutline: result.guidance.stepOutline || [],
           reportHints: result.guidance.reportHints || [],
+          executorPrompt: result.executorPrompt,
           executorPromptPreview: result.executorPrompt.slice(0, 400),
         },
         timings: result.diagnostics?.timings || null,
