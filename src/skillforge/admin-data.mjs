@@ -39,6 +39,14 @@ function clampText(value, maxLength = 220) {
   return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
 }
 
+function normalizeEscapedText(value = '') {
+  return String(value)
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"');
+}
+
 function parseJsonObject(value) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
@@ -53,7 +61,7 @@ function parseJsonObject(value) {
 function summarizeTaskPrompt(value = '') {
   const parsed = parseJsonObject(value);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return String(value || '').trim();
+    return normalizeEscapedText(value || '').trim();
   }
 
   const parts = [];
@@ -67,7 +75,7 @@ function summarizeTaskPrompt(value = '') {
   }
 
   const compact = parts.filter(Boolean).join('\n\n').trim();
-  return compact || String(value || '').trim();
+  return compact || normalizeEscapedText(value || '').trim();
 }
 
 function parseFrontmatter(raw = '') {
@@ -386,9 +394,9 @@ function buildRunSummary(run) {
     inputPreview: clampText(inputDisplayText, 180),
     matchedSkills,
     matchedSkillCount: matchedSkills.length,
-    outputText: output.text,
+    outputText: normalizeEscapedText(output.text),
     outputKind: output.kind,
-    outputPreview: clampText(output.text, 220),
+    outputPreview: clampText(normalizeEscapedText(output.text), 220),
     failureStage,
     notes: run?.diagnosis?.notes || [],
     raw: run,
