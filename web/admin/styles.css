@@ -269,6 +269,13 @@ input {
 .row-copy {
   color: var(--muted);
   line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.run-row .subtle-note {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .status-pill {
