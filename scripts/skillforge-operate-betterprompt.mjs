@@ -86,7 +86,7 @@ async function main() {
     return;
   }
 
-  const stdinPrompt = await readStdinIfNeeded();
+  const stdinPrompt = args.prompt ? '' : await readStdinIfNeeded();
   const prompt = args.prompt || stdinPrompt;
   if (!prompt) {
     printUsage();

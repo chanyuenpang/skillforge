@@ -40,7 +40,7 @@ async function readStdinIfNeeded() {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const stdinPlan = await readStdinIfNeeded();
+  const stdinPlan = args.plan ? '' : await readStdinIfNeeded();
   const plan = args.plan || stdinPlan;
 
   if (!plan) {
