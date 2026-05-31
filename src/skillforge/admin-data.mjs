@@ -36,7 +36,7 @@ function stripMarkdown(value = '') {
 function clampText(value, maxLength = 220) {
   const text = stripMarkdown(value).replace(/\s+/g, ' ').trim();
   if (text.length <= maxLength) return text;
-  return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
+  return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
 }
 
 function parseFrontmatter(raw = '') {
@@ -288,18 +288,8 @@ function extractMatchedSkills(run) {
   return [...map.values()];
 }
 
-function extractOutputText(run) {
+function extractOutput(run) {
   const compiledPackage = run?.compilation?.compiledPackage;
-  if (compiledPackage && typeof compiledPackage === 'object') {
-    const fragments = [];
-    if (compiledPackage.objective) fragments.push(`Objective: ${compiledPackage.objective}`);
-    if (compiledPackage.steps) fragments.push(`Steps: ${compiledPackage.steps}`);
-    if (Array.isArray(compiledPackage.reportSections) && compiledPackage.reportSections.length) {
-      fragments.push(`Deliverables: ${compiledPackage.reportSections.join(', ')}`);
-    }
-    if (fragments.length) return fragments.join('\n');
-  }
-
   const candidates = [
     run?.compilation?.output?.executorPrompt,
     run?.compilation?.executorPrompt,
@@ -307,10 +297,26 @@ function extractOutputText(run) {
     run?.execution?.outputText,
     run?.execution?.report,
   ];
+
   for (const value of candidates) {
-    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'string' && value.trim()) {
+      return { text: value.trim(), kind: 'natural' };
+    }
   }
-  return '';
+
+  if (compiledPackage && typeof compiledPackage === 'object') {
+    const fragments = [];
+    if (compiledPackage.objective) fragments.push(`Objective: ${compiledPackage.objective}`);
+    if (compiledPackage.steps) fragments.push(`Steps: ${compiledPackage.steps}`);
+    if (Array.isArray(compiledPackage.reportSections) && compiledPackage.reportSections.length) {
+      fragments.push(`Deliverables: ${compiledPackage.reportSections.join(', ')}`);
+    }
+    if (fragments.length) {
+      return { text: fragments.join('\n'), kind: 'legacy_structured' };
+    }
+  }
+
+  return { text: '', kind: 'none' };
 }
 
 function detectRunKind(run) {
@@ -320,7 +326,7 @@ function detectRunKind(run) {
 }
 
 function buildRunSummary(run) {
-  const outputText = extractOutputText(run);
+  const output = extractOutput(run);
   const matchedSkills = extractMatchedSkills(run);
   const failureStage = run?.diagnosis?.failureStage || null;
   const inputText = run?.userRequest?.text || '';
@@ -334,12 +340,53 @@ function buildRunSummary(run) {
     inputPreview: clampText(inputText, 180),
     matchedSkills,
     matchedSkillCount: matchedSkills.length,
-    outputText,
-    outputPreview: clampText(outputText, 220),
+    outputText: output.text,
+    outputKind: output.kind,
+    outputPreview: clampText(output.text, 220),
     failureStage,
     notes: run?.diagnosis?.notes || [],
     raw: run,
   };
+}
+
+function normalizeForSignature(value = '') {
+  return String(value).replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function collapseRuns(runs = []) {
+  const seen = new Map();
+  const collapsed = [];
+
+  for (const run of runs) {
+    const signature = [
+      run.kind,
+      run.status,
+      run.failureStage || 'none',
+      run.outputKind,
+      normalizeForSignature(run.inputText),
+      run.matchedSkills.map((skill) => skill.id || skill.name).sort().join('|'),
+    ].join('::');
+
+    if (seen.has(signature)) {
+      seen.get(signature).duplicateCount += 1;
+      continue;
+    }
+
+    const record = {
+      ...run,
+      duplicateCount: 1,
+    };
+    seen.set(signature, record);
+    collapsed.push(record);
+  }
+
+  return collapsed;
+}
+
+function sortRunsNewestFirst(runs = []) {
+  return runs
+    .slice()
+    .sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
 }
 
 function sortRunsForShowcase(runs = []) {
@@ -350,7 +397,8 @@ function sortRunsForShowcase(runs = []) {
         let value = 0;
         if (run.status === 'success') value += 30;
         if (run.matchedSkillCount > 0) value += 10;
-        if (run.outputText) value += 8;
+        if (run.outputKind === 'natural') value += 10;
+        else if (run.outputText) value += 4;
         if (run.failureStage) value -= 4;
         return value;
       };
@@ -361,11 +409,13 @@ function sortRunsForShowcase(runs = []) {
 }
 
 export function listAdminRuns({ limit = 120 } = {}) {
-  return listRoutedRuns()
+  const runs = listRoutedRuns()
     .slice()
     .reverse()
     .map(buildRunSummary)
-    .slice(0, limit);
+    .filter((run) => run.inputText || run.outputText || run.matchedSkillCount > 0 || run.failureStage);
+
+  return sortRunsNewestFirst(collapseRuns(runs)).slice(0, limit);
 }
 
 export function listAdminSkills() {
@@ -412,7 +462,9 @@ export function getAdminOverview() {
   const runs = listAdminRuns();
   const skills = skillsState.skills;
   const topTags = aggregateTopTags(skills);
-  const uniqueTagCount = new Set(skills.flatMap((skill) => (skill.tags || []).map((tag) => `${tag.type}:${tag.name}`))).size;
+  const uniqueTagCount = new Set(
+    skills.flatMap((skill) => (skill.tags || []).map((tag) => `${tag.type}:${tag.name}`)),
+  ).size;
   const successfulRuns = runs.filter((run) => run.status === 'success').length;
 
   return {

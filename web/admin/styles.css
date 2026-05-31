@@ -134,54 +134,9 @@ input {
   padding: 28px;
 }
 
-.hero-panel {
-  position: relative;
-  overflow: hidden;
-  display: grid;
-  gap: 18px;
-  padding: 34px;
-  border-radius: 34px;
-  background:
-    linear-gradient(135deg, rgba(255, 250, 242, 0.92), rgba(255, 244, 233, 0.82)),
-    rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  box-shadow: var(--shadow);
-}
-
-.hero-copy {
-  position: relative;
-  z-index: 1;
-  max-width: 760px;
-}
-
-.hero-copy h2 {
-  font-size: clamp(2rem, 5vw, 3.8rem);
-  line-height: 0.95;
-  margin-bottom: 14px;
-}
-
-.hero-copy p:last-child {
-  margin: 0;
-  max-width: 56ch;
-  color: var(--muted);
-  line-height: 1.7;
-}
-
-.hero-glow {
-  position: absolute;
-  right: -48px;
-  top: -48px;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.85), rgba(215, 100, 71, 0.35) 48%, rgba(23, 20, 20, 0.04) 76%);
-  filter: blur(6px);
-}
-
 .page-view {
   display: none;
-  margin-top: 24px;
+  margin-top: 0;
   gap: 22px;
 }
 
@@ -471,15 +426,6 @@ input {
   .workspace,
   .side-rail {
     padding: 18px;
-  }
-
-  .hero-panel {
-    padding: 24px;
-    border-radius: 26px;
-  }
-
-  .hero-copy h2 {
-    font-size: 2.3rem;
   }
 
   .grid-cards {

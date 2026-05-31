@@ -65,10 +65,10 @@ function renderOverview() {
   if (!overview) return;
 
   const metrics = [
-    { label: 'Skills', value: overview.counts.skills, note: `${overview.sourceLabel} 中当前可浏览的技能资产` },
-    { label: 'Tags', value: overview.counts.tags, note: '当前页面主要显示高频标签，不把界面做成参数控制台' },
-    { label: 'Runs', value: overview.counts.runs, note: '包括最近的成功与失败运行，方便直接回看输入输出' },
-    { label: 'Healthy', value: overview.counts.successfulRuns, note: '最近 run 中成功落地的数量' },
+    { label: 'Skills', value: overview.counts.skills, note: `${overview.sourceLabel} currently available` },
+    { label: 'Tags', value: overview.counts.tags, note: 'High-signal tags only' },
+    { label: 'Runs', value: overview.counts.runs, note: 'Visible clean run records' },
+    { label: 'Healthy', value: overview.counts.successfulRuns, note: 'Successful visible runs' },
   ];
 
   target.innerHTML = `
@@ -190,39 +190,58 @@ function filteredRuns() {
   });
 }
 
-function renderRuns() {
-  const target = pageViews.runs;
-  const runsState = state.runsState;
-  if (!runsState) return;
-  const runs = filteredRuns();
-
-  target.innerHTML = `
+function renderRunSection(title, subtitle, runs, emptyText) {
+  return `
     <section class="card">
-      <div class="toolbar">
+      <div class="section-head">
         <div>
-          <p class="eyebrow">Run archive</p>
-          <h3>每一次 run 的输入、输出与命中技能</h3>
-          <p class="subtle-note">重点看语义结果和过程帮助，不需要把原始技术参数都抖出来。</p>
+          <p class="eyebrow">${escapeHtml(subtitle)}</p>
+          <h3>${escapeHtml(title)}</h3>
         </div>
-        <input class="search-input" id="run-search" type="search" placeholder="按输入、输出或命中技能搜索" value="${escapeHtml(state.runQuery)}" />
+        <p>${runs.length} runs</p>
       </div>
       <div class="list-stack">
         ${runs.length ? runs.map((run) => `
           <button type="button" class="run-row" data-open-run="${escapeHtml(run.runId)}">
             <div class="row-topline">
-              <span class="row-title">${escapeHtml(run.kind)} · ${escapeHtml(formatTime(run.timestamp))}</span>
+              <span class="row-title">${escapeHtml(formatTime(run.timestamp))}</span>
               ${statusPill(run)}
             </div>
             <div class="row-copy">${escapeHtml(run.inputPreview || 'No request text')}</div>
             <div class="run-skills">
               ${(run.matchedSkills || []).length
                 ? run.matchedSkills.map((skill) => `<span class="tag-chip"><strong>${escapeHtml(skill.name || skill.id)}</strong></span>`).join('')
-                : '<span class="subtle-note">这次没有留下技能命中结果</span>'}
+                : '<span class="subtle-note">No matched skills recorded</span>'}
             </div>
           </button>
-        `).join('') : document.getElementById('empty-state-template').innerHTML}
+        `).join('') : `<div class="empty-state"><p>${escapeHtml(emptyText)}</p></div>`}
       </div>
     </section>
+  `;
+}
+
+function renderRuns() {
+  const target = pageViews.runs;
+  const runsState = state.runsState;
+  if (!runsState) return;
+  const runs = filteredRuns();
+  const promptRuns = runs.filter((run) => run.kind === 'Prompt Routing');
+  const planRuns = runs.filter((run) => run.kind === 'Plan Review');
+
+  target.innerHTML = `
+    <section class="card">
+      <div class="toolbar">
+        <div>
+          <p class="eyebrow">Run archive</p>
+          <h3>Runs</h3>
+          <p class="subtle-note">Split betterPrompt and betterPlan, newest first.</p>
+        </div>
+        <input class="search-input" id="run-search" type="search" placeholder="Search by input, output, or matched skill" value="${escapeHtml(state.runQuery)}" />
+      </div>
+    </section>
+
+    ${renderRunSection('betterPrompt', 'Prompt routing', promptRuns, 'No betterPrompt runs yet.')}
+    ${renderRunSection('betterPlan', 'Plan review', planRuns, 'No betterPlan runs yet.')}
   `;
 
   const search = document.getElementById('run-search');
