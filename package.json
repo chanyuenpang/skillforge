@@ -6,6 +6,7 @@
   "scripts": {
     "betterplan": "node scripts/skillforge-operate-betterplan.mjs",
     "betterprompt": "node scripts/skillforge-operate-betterprompt.mjs",
+    "admin": "node scripts/skillforge-admin-server.mjs",
     "build:index": "node scripts/rebuild-skill-index.mjs",
     "verify:index": "node scripts/verify-relational-index.mjs",
     "test:betterplan": "node scripts/test-betterplan-v1.mjs --sample",
