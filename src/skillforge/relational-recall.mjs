@@ -60,6 +60,19 @@ function buildSkillSearchText(skill = {}) {
     .toLowerCase();
 }
 
+function buildSkillAffinityText(skill = {}) {
+  return [
+    skill.name,
+    skill.description,
+    ...(skill.applicableScenes || []),
+    ...(skill.triggerHints || []),
+    ...(skill.tags || []),
+  ]
+    .filter(hasText)
+    .join('\n')
+    .toLowerCase();
+}
+
 const TAG_TYPE_WEIGHT = Object.freeze({
   project: 3,
   workflow: 2.5,
@@ -213,7 +226,7 @@ function scoreRoleBoost(skill, taskRecord = {}, directScore = 0, tagScore = 0) {
   const category = normalizeString(skill.skillCategory);
   const boosts = [];
   let score = 0;
-  const searchText = buildSkillSearchText(skill);
+  const searchText = buildSkillAffinityText(skill);
 
   const isCodeExecutionTask = taskTypes.some((item) => /code|implementation|develop|modify|execution/.test(item))
     || workflowStages.some((item) => /implementation|development|execution/.test(item));
@@ -226,8 +239,8 @@ function scoreRoleBoost(skill, taskRecord = {}, directScore = 0, tagScore = 0) {
 
   let affinityScore = 0;
   if (isCodeExecutionTask) {
-    if (/(coding|code|implementation|implement|developer|feature|bug|refactor|modify|edit)/.test(searchText)) affinityScore += 3;
-    if (/(compile|compiler|build|python)/.test(searchText)) affinityScore += 1;
+    if (/(coding|code|implementation|implement|developer|feature|bug|refactor|modify)/.test(searchText)) affinityScore += 3;
+    if (/(compile|compiler|build|pipeline|asset)/.test(searchText)) affinityScore += 1;
   }
   if (isBrowserValidationTask && /(browser|browseros|playwright|page|dom|e2e|validation|verify|evidence)/.test(searchText)) {
     affinityScore += 3;
