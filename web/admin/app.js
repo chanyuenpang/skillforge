@@ -269,6 +269,7 @@ function openDrawer(html, mode = 'default') {
   drawer.dataset.mode = mode;
   drawerContent.innerHTML = html;
   drawer.hidden = false;
+  document.body.classList.add('drawer-open');
 }
 
 function closeDrawer() {
@@ -276,6 +277,7 @@ function closeDrawer() {
   drawer.dataset.mode = 'default';
   disposeEditors();
   drawerContent.innerHTML = '';
+  document.body.classList.remove('drawer-open');
 }
 
 function renderSkillDrawer(skill) {
@@ -368,8 +370,10 @@ async function mountReadonlyEditor(targetId, content, language, label) {
   const target = document.getElementById(targetId);
   if (!target) return;
   const text = String(content || '');
+  renderCodeFallback(target, text || 'No content recorded');
   try {
     const monaco = await loadMonaco();
+    target.innerHTML = '';
     const editor = monaco.editor.create(target, {
       value: text,
       language,
@@ -391,7 +395,6 @@ async function mountReadonlyEditor(targetId, content, language, label) {
     activeEditors.push(editor);
   } catch (error) {
     console.warn(`Failed to mount ${label} editor`, error);
-    renderCodeFallback(target, text || 'No content recorded');
   }
 }
 

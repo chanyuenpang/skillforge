@@ -37,6 +37,10 @@ body {
   font-family: Aptos, "Segoe UI Variable Text", "Segoe UI", sans-serif;
 }
 
+body.drawer-open {
+  overflow: hidden;
+}
+
 button,
 input {
   font: inherit;
