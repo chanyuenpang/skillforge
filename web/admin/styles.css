@@ -260,6 +260,12 @@ input {
   font-weight: 600;
 }
 
+.row-subtitle {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .row-copy {
   color: var(--muted);
   line-height: 1.6;

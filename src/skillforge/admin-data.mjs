@@ -58,12 +58,7 @@ function parseJsonObject(value) {
   }
 }
 
-function summarizeTaskPrompt(value = '') {
-  const parsed = parseJsonObject(value);
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return normalizeEscapedText(value || '').trim();
-  }
-
+function extractStructuredPrompt(parsed) {
   const parts = [];
   if (parsed.title) parts.push(String(parsed.title).trim());
   if (parsed.summary) parts.push(String(parsed.summary).trim());
@@ -75,7 +70,68 @@ function summarizeTaskPrompt(value = '') {
   }
 
   const compact = parts.filter(Boolean).join('\n\n').trim();
-  return compact || normalizeEscapedText(value || '').trim();
+  return {
+    title: parsed.title ? String(parsed.title).trim() : '',
+    summary: parsed.summary ? String(parsed.summary).trim() : '',
+    taskCount: Array.isArray(parsed.tasks) ? parsed.tasks.length : 0,
+    displayText: compact,
+  };
+}
+
+function extractSummaryHighlight(summary = '') {
+  const text = normalizeEscapedText(summary).replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+
+  const markers = [
+    '当前验证结论：',
+    '当前状态：',
+    '现阶段最新唯一阻塞已',
+    '最新唯一阻塞已',
+    '最终结果：',
+  ];
+
+  for (const marker of markers) {
+    const index = text.indexOf(marker);
+    if (index >= 0) {
+      return text.slice(index).trim();
+    }
+  }
+
+  const sentences = text
+    .split(/(?<=[。！？])/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return sentences.at(-1) || text;
+}
+
+function summarizeTaskPrompt(value = '') {
+  const parsed = parseJsonObject(value);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    const plain = normalizeEscapedText(value || '').trim();
+    return {
+      title: '',
+      summary: '',
+      taskCount: 0,
+      highlight: '',
+      displayText: plain,
+      previewText: plain,
+    };
+  }
+
+  const structured = extractStructuredPrompt(parsed);
+  const highlight = extractSummaryHighlight(structured.summary);
+  const previewParts = [
+    structured.title,
+    highlight || (structured.taskCount ? `Tasks: ${structured.taskCount}` : ''),
+  ].filter(Boolean);
+
+  return {
+    ...structured,
+    highlight,
+    displayText: structured.displayText || normalizeEscapedText(value || '').trim(),
+    previewText: previewParts.join(' · ') || structured.displayText || normalizeEscapedText(value || '').trim(),
+  };
 }
 
 function parseFrontmatter(raw = '') {
@@ -382,7 +438,8 @@ function buildRunSummary(run) {
   const matchedSkills = extractMatchedSkills(run);
   const failureStage = run?.diagnosis?.failureStage || null;
   const inputText = run?.userRequest?.text || '';
-  const inputDisplayText = summarizeTaskPrompt(inputText);
+  const promptSummary = summarizeTaskPrompt(inputText);
+  const inputDisplayText = promptSummary.displayText;
 
   return {
     runId: run.runId,
@@ -390,8 +447,10 @@ function buildRunSummary(run) {
     status: run.status || (failureStage ? 'failed' : 'success'),
     kind: detectRunKind(run),
     inputText,
+    inputTitle: promptSummary.title,
+    inputHighlight: promptSummary.highlight,
     inputDisplayText,
-    inputPreview: clampText(inputDisplayText, 180),
+    inputPreview: clampText(promptSummary.previewText || inputDisplayText, 220),
     matchedSkills,
     matchedSkillCount: matchedSkills.length,
     outputText: normalizeEscapedText(output.text),

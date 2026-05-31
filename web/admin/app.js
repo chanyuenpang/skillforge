@@ -229,6 +229,7 @@ function renderRunSection(title, subtitle, runs, emptyText) {
               <span class="row-title">${escapeHtml(formatTime(run.timestamp))}</span>
               ${statusPill(run)}
             </div>
+            ${run.inputTitle ? `<div class="row-subtitle">${escapeHtml(run.inputTitle)}</div>` : ''}
             <div class="row-copy">${escapeHtml(run.inputPreview || 'No request text')}</div>
             ${run.outputPreview ? `<div class="subtle-note">${escapeHtml(run.outputPreview)}</div>` : ''}
             <div class="run-skills">
