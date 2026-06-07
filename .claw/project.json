@@ -1,42 +1,39 @@
 {
   "schemaVersion": 1,
-  "id": "workflow-kit",
-  "displayName": "workflow-kit",
+  "id": "skillforge",
+  "displayName": "skillforge",
   "aliases": [],
   "description": "",
-  "createdAt": "2026-06-05T12:55:32.602Z",
-  "updatedAt": "2026-06-05T12:55:32.602Z",
+  "createdAt": "2026-06-05T12:55:32.299Z",
+  "updatedAt": "2026-06-05T12:55:32.299Z",
   "settings": {
-    "id": "workflow-kit",
-    "rootPath": "/home/yankeeting/.openclaw/projects/workflow-kit",
+    "id": "skillforge",
+    "rootPath": "/home/yankeeting/.openclaw/projects/skillforge",
     "gitnexus": {
       "enabled": true
     },
     "memoryStore": {
-      "path": "/home/yankeeting/.openclaw/.projects/workflow-kit/memory.sqlite"
+      "path": "/home/yankeeting/.openclaw/.projects/skillforge/memory.sqlite"
     },
-    "registeredAt": "2026-05-20T19:21:51.159Z",
-    "updatedAt": "2026-05-29T15:56:58.958Z",
-    "sessionLastTasks": {
-      "agent:main:truth-project:workflow-kit:plan-completed-1779436101797": "skillforge-roadmap-master-plan",
-      "agent:main:truth-project:workflow-kit:plan-write-1779626851620": "skillforge-运行中心第一刀子实现"
-    },
+    "registeredAt": "2026-05-29T18:33:56.966Z",
+    "updatedAt": "2026-05-30T06:49:47.895Z",
+    "sessionLastTasks": {},
     "name": "skillforge",
     "contextPaths": [],
     "memory": {
       "externalDocPaths": []
     },
     "truthSource": {
-      "enabled": true,
-      "visibility": "visible",
-      "truthVisible": true,
+      "enabled": false,
+      "visibility": "hidden",
+      "truthVisible": false,
       "mode": "internal",
       "autoAdr": true,
       "adrThreshold": "high",
       "excludedAgents": [],
       "maxReportAge": 86400,
       "truthDoc": {
-        "enabled": true
+        "enabled": false
       }
     },
     "agent": {
@@ -47,7 +44,7 @@
     }
   },
   "gitnexus": {
-    "repoId": "workflow-kit",
+    "repoId": "skillforge",
     "indexed": false
   },
   "memory": {
