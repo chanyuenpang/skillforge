@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "workflow-kit-relational-validate",
+  "displayName": "workflow-kit-relational-validate",
+  "aliases": [],
+  "description": "",
+  "createdAt": "2026-06-05T12:54:11.639Z",
+  "updatedAt": "2026-06-05T12:54:11.639Z",
+  "settings": {
+    "name": "skillforge",
+    "contextPaths": [],
+    "memory": {
+      "externalDocPaths": []
+    },
+    "gitnexus": {
+      "enabled": true
+    },
+    "truthSource": {
+      "enabled": true,
+      "visibility": "visible",
+      "truthVisible": true,
+      "mode": "internal",
+      "autoAdr": true,
+      "adrThreshold": "high",
+      "excludedAgents": [],
+      "maxReportAge": 86400,
+      "truthDoc": {
+        "enabled": true
+      }
+    },
+    "agent": {
+      "files": [],
+      "skills": [],
+      "commands": [],
+      "mcpServers": {}
+    }
+  },
+  "gitnexus": {
+    "repoId": "workflow-kit-relational-validate",
+    "indexed": false
+  },
+  "memory": {
+    "driver": "sqlite",
+    "path": ".claw/memory.sqlite"
+  },
+  "state": {}
+}
